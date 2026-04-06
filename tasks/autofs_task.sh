@@ -7,6 +7,7 @@ source "$BASE_DIR/lib/common.sh"
 AUTOFS_BASEDIR=${AUTOFS_BASEDIR:-/etc/auto.master.d}
 AUTOFS_MAPS_DIR=${AUTOFS_MAPS_DIR:-$AUTOFS_BASEDIR/maps}
 AUTOFS_FILESYSTEMS=${AUTOFS_FILESYSTEMS:-loop sshfs cifs nfs}
+AUTOFS_SSH_WRAPPERS_DIR=${AUTOFS_SSH_WRAPPERS_DIR:-/etc/sysmaint/autofs-ssh}
 AUTOFS_RELOAD_MARKER=${AUTOFS_RELOAD_MARKER:-}
 AUTOFS_CHANGED=0
 AUTOFS_RESET=0
@@ -91,6 +92,39 @@ ensure_dir() {
   [[ -d $dir ]] || mkdir -p "$dir"
 }
 
+sanitize_filename() {
+  printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'
+}
+
+ensure_sshfs_jump_wrapper() {
+  local jump_host=$1
+  local safe_name wrapper_path current_content desired_content
+
+  safe_name=$(sanitize_filename "$jump_host")
+  wrapper_path="${AUTOFS_SSH_WRAPPERS_DIR}/ssh-via-${safe_name}"
+  desired_content=$(cat <<EOF
+#!/bin/sh
+exec /usr/bin/ssh -o ProxyJump=root@${jump_host} "\$@"
+EOF
+)
+
+  ensure_dir "$AUTOFS_SSH_WRAPPERS_DIR"
+
+  if [[ -f $wrapper_path ]]; then
+    current_content=$(cat "$wrapper_path")
+    if [[ $current_content == "$desired_content" ]]; then
+      printf '%s' "$wrapper_path"
+      return 0
+    fi
+  fi
+
+  info "Erzeuge SSHFS-Jump-Wrapper: $wrapper_path"
+  printf '%s\n' "$desired_content" > "$wrapper_path"
+  chmod 0755 "$wrapper_path"
+  AUTOFS_CHANGED=1
+  printf '%s' "$wrapper_path"
+}
+
 reset_host_autofs_files() {
   local master_map=$1
   local filesystem mapfile
@@ -138,7 +172,7 @@ create_master_map_if_missing() {
 create_fs_map_if_missing() {
   local filesystem=$1
   local mapfile=$2
-  local sshfs_opts
+  local sshfs_opts ssh_wrapper
 
   [[ -f $mapfile ]] && {
     info "AutoFS-Map vorhanden: $mapfile"
@@ -171,7 +205,8 @@ create_fs_map_if_missing() {
     sshfs)
       sshfs_opts='rw,nodev,noatime,allow_other,max_read=65536,users'
       if [[ -n ${JP:-} ]]; then
-        sshfs_opts+=",ssh_command=/usr/bin/ssh\\040-oProxyJump=root@${JP}"
+        ssh_wrapper=$(ensure_sshfs_jump_wrapper "$JP")
+        sshfs_opts+=",ssh_command=${ssh_wrapper}"
       fi
       {
         printf '# AutoFS mountpoints for %s\n' "$Name"
