@@ -98,8 +98,14 @@ The repository includes small helper scripts for disciplined GitHub usage:
 - `./scripts/open-pr.sh`
 - `./scripts/release.sh v0.2.0 "Short release title"`
 - `./scripts/update-local.sh`
+- `./scripts/link-runtime-overrides.sh`
 
 Release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
+When external runtime files exist, the local clone can also expose them transparently via:
+
+- `.Systems.override.sh` -> `/etc/sysmaint/.Systems.sh`
+- `keys.override` -> `/etc/sysmaint/keys`
 
 ## Sensitive data strategy
 

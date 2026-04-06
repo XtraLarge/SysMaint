@@ -103,3 +103,8 @@ The update script requires:
 - clean working tree
 - current branch is `main`
 - fast-forward update from `origin/main`
+
+It also refreshes transparent runtime links when `/etc/sysmaint` is present:
+
+- `.Systems.override.sh`
+- `keys.override`

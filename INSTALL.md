@@ -89,6 +89,13 @@ cd /root/SysMaint
 
 You can also install a small wrapper such as `/usr/local/bin/sysmaint-update` that just calls that script.
 
+To create transparent links to the active runtime files:
+
+```bash
+cd /root/SysMaint
+./scripts/link-runtime-overrides.sh
+```
+
 ## Recommended Git practice
 
 - Keep the repository content generic and publishable.

@@ -17,6 +17,10 @@ git diff --cached --quiet
 git fetch origin
 git pull --ff-only origin main
 
+if [[ -x ./scripts/link-runtime-overrides.sh ]]; then
+  ./scripts/link-runtime-overrides.sh
+fi
+
 if [[ -x ./scripts/check.sh ]]; then
   ./scripts/check.sh
 fi
