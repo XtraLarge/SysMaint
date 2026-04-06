@@ -283,8 +283,30 @@ sanitize_job_name() {
 }
 
 run_task_for_current_host() {
-  export Typ ID Name IP BS UP FR BK KY RS SH AF JP Host RB REBOOT_QUEUE_FILE STATUS_FILE
+  export Typ ID Name IP BS UP FR BK KY RS SH AF JP Host RB REBOOT_QUEUE_FILE STATUS_FILE AUTOFS_RELOAD_MARKER
   TASK_NAME="$FLAG" TASK_SCRIPT="$TASK_SCRIPT" BASE_DIR="$BASE_DIR" SYSTEMS_FILE="$SYSTEMS_FILE" bash "$TASK_SCRIPT" "${TASK_ARGS[@]}"
+}
+
+reload_autofs_after_run_if_needed() {
+  [[ -n ${AUTOFS_RELOAD_MARKER:-} && -s $AUTOFS_RELOAD_MARKER ]] || {
+    info "Kein AutoFS-Reload nötig"
+    return 0
+  }
+
+  if command -v systemctl >/dev/null 2>&1; then
+    info "Lade AutoFS-Service nach Abschluss des Laufs neu"
+    systemctl enable --now autofs >/dev/null 2>&1 || true
+    systemctl reload autofs >/dev/null 2>&1 || systemctl restart autofs
+    return 0
+  fi
+
+  if command -v service >/dev/null 2>&1; then
+    info "Starte AutoFS-Service nach Abschluss des Laufs neu"
+    service autofs restart
+    return 0
+  fi
+
+  warn "Kein unterstützter Service-Manager für AutoFS gefunden"
 }
 
 build_local_execution_scope() {
@@ -669,6 +691,7 @@ declare -a JOB_RESULTS=()
 JOB_RUN_DIR="$LOG_DIR/last_jobs"
 rm -rf "$JOB_RUN_DIR"
 mkdir -p "$JOB_RUN_DIR"
+AUTOFS_RELOAD_MARKER=$(mktemp)
 trap 'rm -f "$REBOOT_QUEUE_FILE"' EXIT
 info "Job-Logs dieser Ausführung: $JOB_RUN_DIR"
 
@@ -733,6 +756,8 @@ fi
 
 if [[ $FLAG == "UP" ]]; then
   schedule_queued_reboots "$REBOOT_QUEUE_FILE"
+elif [[ $FLAG == "AF" ]]; then
+  reload_autofs_after_run_if_needed
 fi
 
 if (( matched == 0 )); then
