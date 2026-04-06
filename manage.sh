@@ -27,6 +27,24 @@ require_file "$SYSTEMS_FILE"
 # shellcheck source=/dev/null
 source "$SYSTEMS_FILE"
 
+export_optional_config() {
+  local var_name
+  for var_name in \
+    KEYS_MANAGED_DIR MANAGED_KEY_DIR BACKUP_KEY_FILE \
+    RSYSLOG_TARGET_HOST RSYSLOG_TARGET_PORT RSYSLOG_TARGET_PROTOCOL RSYSLOG_REMOTE_FILE \
+    SHELL_PACKAGES_DEFAULT SHELL_PACKAGES_D SHELL_PACKAGES_U SHELL_PACKAGES_S SHELL_PACKAGES_B SHELL_PACKAGES_X \
+    AUTOFS_PACKAGES_DEFAULT AUTOFS_PACKAGES_D AUTOFS_PACKAGES_U AUTOFS_PACKAGES_S AUTOFS_PACKAGES_B AUTOFS_PACKAGES_X \
+    AUTOFS_BASEDIR AUTOFS_MAPS_DIR AUTOFS_FILESYSTEMS
+  do
+    if declare -p "$var_name" >/dev/null 2>&1; then
+      export "$var_name"
+    fi
+  done
+}
+
+export_optional_config
+LOCAL_DNS_SUFFIX=$(detect_local_dns_suffix)
+
 usage() {
   cat <<USAGE
 Verwendung:
@@ -151,14 +169,24 @@ append_status() {
 
 schedule_queued_reboots() {
   local queue_file=$1
+  local reboot_name reboot_ip reboot_jp
+  local -a queued_reboots=()
+
   [[ -s $queue_file ]] || {
     info "Keine Reboots vorgemerkt"
     append_status "-" "-" "$FLAG" "INFO" "Keine Reboots vorgemerkt"
     return 0
   }
 
+  while IFS='|' read -r reboot_name reboot_ip reboot_jp; do
+    [[ -n ${reboot_name:-} && -n ${reboot_ip:-} ]] || continue
+    queued_reboots+=("${reboot_name} (${reboot_ip})")
+  done < "$queue_file"
+
+  warn "${#queued_reboots[@]} System(e) werden jetzt in 5 Minuten neu gestartet:"
+  printf '%s\n' "${queued_reboots[@]}"
   info "Starte vorgemerkte Reboots erst nach Abschluss aller Systeme"
-  local line reboot_name reboot_ip reboot_jp reboot_result reboot_detail
+
   while IFS='|' read -r reboot_name reboot_ip reboot_jp; do
     [[ -n ${reboot_name:-} && -n ${reboot_ip:-} ]] || continue
     Name=$reboot_name

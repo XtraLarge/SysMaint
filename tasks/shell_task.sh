@@ -13,9 +13,34 @@ fi
 SHELL_REPOSITORY_DIR=${SHELL_REPOSITORY_DIR:-$DEFAULT_SHELL_REPOSITORY_DIR}
 SHELL_BASH_LOCAL_FILE=${SHELL_BASH_LOCAL_FILE:-$SHELL_REPOSITORY_DIR/.bash_local}
 SHELL_VIMRC_FILE=${SHELL_VIMRC_FILE:-$SHELL_REPOSITORY_DIR/.vimrc}
+shell_packages_for_current_os() {
+  local var_name="SHELL_PACKAGES_${BS:-}"
+  local packages
+
+  case "${BS:-}" in
+    D|U)
+      packages="bash-completion vim less"
+      ;;
+    S)
+      packages="vim less"
+      ;;
+    *)
+      packages=${SHELL_PACKAGES_DEFAULT:-}
+      ;;
+  esac
+
+  if declare -p "$var_name" >/dev/null 2>&1; then
+    packages=${!var_name}
+  fi
+
+  printf '%s' "$packages"
+}
 
 run_task() {
   info "Installiere Shell-Konfiguration auf ${Name}"
+
+  local shell_packages
+  shell_packages=$(shell_packages_for_current_os)
 
   local remote_script
   remote_script="$(cat <<EOF_REMOTE
@@ -28,10 +53,38 @@ VIMRC_END="\" END SYSMAINT MANAGED VIMRC"
 
 export DEBIAN_FRONTEND=noninteractive
 
-if command -v apt-get >/dev/null 2>&1; then
-  apt-get update
-  apt-get -y install bash-completion vim less
-fi
+SHELL_PACKAGES="${shell_packages}"
+
+install_requested_packages() {
+  local missing=()
+  local pkg
+
+  [[ -n \$SHELL_PACKAGES ]] || return 0
+
+  if command -v apt-get >/dev/null 2>&1 && command -v dpkg-query >/dev/null 2>&1; then
+    for pkg in \$SHELL_PACKAGES; do
+      dpkg-query -W -f='\${Status}\\n' "\$pkg" 2>/dev/null | grep -Fqx 'install ok installed' || missing+=("\$pkg")
+    done
+
+    if (( \${#missing[@]} > 0 )); then
+      apt-get update
+      apt-get -y install "\${missing[@]}"
+    fi
+    return 0
+  fi
+
+  if command -v zypper >/dev/null 2>&1 && command -v rpm >/dev/null 2>&1; then
+    for pkg in \$SHELL_PACKAGES; do
+      rpm -q "\$pkg" >/dev/null 2>&1 || missing+=("\$pkg")
+    done
+
+    if (( \${#missing[@]} > 0 )); then
+      zypper --non-interactive install "\${missing[@]}"
+    fi
+  fi
+}
+
+install_requested_packages
 
 # Locale sauber auf de_DE.UTF-8 setzen
 if [[ -f /etc/locale.gen ]]; then

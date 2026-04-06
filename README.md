@@ -28,6 +28,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - `repository/`: example shell and editor dotfiles
   `.bash_local` is the generic shell baseline file
 - `keys/`: example public key files for the key rollout
+  `keys/managed/` contains the normal managed keys, `keys/backup.pub` stays separate
 - `logs/`: runtime output directory, kept out of versioned logs by `.gitignore`
 
 ## Runtime defaults
@@ -120,7 +121,7 @@ When external runtime files exist, the local clone can also expose them transpar
 This repository is designed to stay free of infrastructure secrets and internal naming:
 
 - `.Systems.sh` ships with example hosts only.
-- `keys/*.pub` contain example public keys only.
+- `keys/managed/*.pub` and `keys/backup.pub` contain example public keys only.
 - `logs/last_run.log` and `logs/last_run.status` are not stored in Git.
 - RSyslog defaults use generic values.
 - Example shell dotfiles contain no internal hostnames or private paths.
@@ -145,6 +146,11 @@ For real environments, prefer one of these approaches:
 - Reboots are queued during update runs and scheduled only after all hosts were processed.
 - The SSH key task maintains exactly one backup file: `/root/.ssh/authorized_keys.bak`.
 - The SSH key task replaces only the marked SysMaint block in `authorized_keys`.
-- The backup key exists only on systems with `BK=1` inside the managed block.
+- Normal managed SSH keys are read from `keys/managed/*.pub` or `/etc/sysmaint/keys/managed/*.pub`.
+- `keys/new_user.pub` and `keys/old_user.pub` remain supported as a backward-compatible fallback if no managed-key directory exists yet.
+- The backup key exists only on systems with `BK=1` inside the managed block and stays separate as `backup.pub`.
 - Managed keys are written with a blank line between entries for readability.
+- Shell packages can now be configured per OS family through variables like `SHELL_PACKAGES_D` in `.Systems.sh`.
+- AutoFS checks the required local packages on the management host and installs missing ones when supported.
+- RSyslog forwarding can be configured through `RSYSLOG_TARGET_HOST`, `RSYSLOG_TARGET_PORT`, and `RSYSLOG_TARGET_PROTOCOL` in `.Systems.sh`.
 - The AutoFS task works locally on the management host.

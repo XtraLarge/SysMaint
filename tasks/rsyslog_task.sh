@@ -4,8 +4,9 @@ set -euo pipefail
 BASE_DIR=${BASE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
 source "$BASE_DIR/lib/common.sh"
 
-TARGET_HOST=${TARGET_HOST:-syslog.example.net}
-TARGET_PORT=${TARGET_PORT:-1514}
+TARGET_HOST=${TARGET_HOST:-${RSYSLOG_TARGET_HOST:-syslog.home.arpa}}
+TARGET_PORT=${TARGET_PORT:-${RSYSLOG_TARGET_PORT:-1514}}
+TARGET_PROTOCOL=${TARGET_PROTOCOL:-${RSYSLOG_TARGET_PROTOCOL:-udp}}
 RSYSLOG_REMOTE_FILE=${RSYSLOG_REMOTE_FILE:-/etc/rsyslog.d/remote_syslog.conf}
 
 build_rsyslog_conf() {
@@ -24,7 +25,7 @@ template(
   type="omfwd"
   target="${TARGET_HOST}"
   port="${TARGET_PORT}"
-  protocol="tcp"
+  protocol="${TARGET_PROTOCOL}"
   Template="T_RFC5424"
   KeepAlive="on"
   ResendLastMSGOnReconnect="on"
@@ -85,5 +86,5 @@ fi
 '
 
 conf=$(build_rsyslog_conf)
-info "Installiere Remote-Syslog auf ${Name} -> ${TARGET_HOST}:${TARGET_PORT}"
+info "Installiere Remote-Syslog auf ${Name} -> ${TARGET_HOST}:${TARGET_PORT}/${TARGET_PROTOCOL}"
 printf '%s' "$conf" | run_ssh_with_stdin "$remote_script" "$RSYSLOG_REMOTE_FILE"

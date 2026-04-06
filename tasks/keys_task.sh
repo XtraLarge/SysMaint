@@ -10,6 +10,7 @@ if [[ -d /etc/sysmaint/keys ]]; then
 fi
 
 KEY_DIR=${KEY_DIR:-$DEFAULT_KEY_DIR}
+MANAGED_KEY_DIR=${MANAGED_KEY_DIR:-${KEYS_MANAGED_DIR:-$KEY_DIR/managed}}
 NEW_KEY_FILE=${NEW_KEY_FILE:-$KEY_DIR/new_user.pub}
 OLD_KEY_FILE=${OLD_KEY_FILE:-$KEY_DIR/old_user.pub}
 BACKUP_KEY_FILE=${BACKUP_KEY_FILE:-$KEY_DIR/backup.pub}
@@ -28,15 +29,31 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-require_file "$NEW_KEY_FILE"
-require_file "$OLD_KEY_FILE"
+collect_managed_keys() {
+  local file found=0
+
+  if [[ -d $MANAGED_KEY_DIR ]]; then
+    for file in "$MANAGED_KEY_DIR"/*.pub; do
+      [[ -e $file ]] || continue
+      require_file "$file"
+      cat "$file"
+      found=1
+    done
+  fi
+
+  if (( found == 0 )); then
+    require_file "$OLD_KEY_FILE"
+    require_file "$NEW_KEY_FILE"
+    cat "$OLD_KEY_FILE"
+    cat "$NEW_KEY_FILE"
+  fi
+}
+
 if [[ ${BK:-0} == "1" ]]; then
   require_file "$BACKUP_KEY_FILE"
 fi
 
-new_key=$(<"$NEW_KEY_FILE")
-old_key=$(<"$OLD_KEY_FILE")
-desired_keys=$(printf '%s\n%s\n' "$old_key" "$new_key")
+desired_keys=$(collect_managed_keys)
 if [[ ${BK:-0} == "1" ]]; then
   backup_key=$(<"$BACKUP_KEY_FILE")
   desired_keys+=$(printf '%s\n' "$backup_key")

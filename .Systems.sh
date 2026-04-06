@@ -10,6 +10,30 @@
 # Standard fields:
 # Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP
 
+# Optional runtime configuration
+# Managed SSH keys:
+# - place the normal managed public keys in KEYS_MANAGED_DIR
+# - keep the backup key separate in BACKUP_KEY_FILE
+KEYS_MANAGED_DIR=${KEYS_MANAGED_DIR:-/etc/sysmaint/keys/managed}
+BACKUP_KEY_FILE=${BACKUP_KEY_FILE:-/etc/sysmaint/keys/backup.pub}
+
+# Shell baseline packages per operating system family
+SHELL_PACKAGES_D=${SHELL_PACKAGES_D:-"bash-completion vim less"}
+SHELL_PACKAGES_U=${SHELL_PACKAGES_U:-"$SHELL_PACKAGES_D"}
+SHELL_PACKAGES_S=${SHELL_PACKAGES_S:-"vim less"}
+SHELL_PACKAGES_B=${SHELL_PACKAGES_B:-""}
+SHELL_PACKAGES_X=${SHELL_PACKAGES_X:-""}
+
+# AutoFS packages on the management host
+AUTOFS_PACKAGES_D=${AUTOFS_PACKAGES_D:-"autofs cifs-utils nfs-common sshfs"}
+AUTOFS_PACKAGES_U=${AUTOFS_PACKAGES_U:-"$AUTOFS_PACKAGES_D"}
+AUTOFS_PACKAGES_S=${AUTOFS_PACKAGES_S:-"autofs cifs-utils nfs-client sshfs"}
+
+# Remote syslog target
+RSYSLOG_TARGET_HOST=${RSYSLOG_TARGET_HOST:-syslog.home.arpa}
+RSYSLOG_TARGET_PORT=${RSYSLOG_TARGET_PORT:-1514}
+RSYSLOG_TARGET_PROTOCOL=${RSYSLOG_TARGET_PROTOCOL:-udp}
+
 IFS=$'\n'
 mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
 !Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP

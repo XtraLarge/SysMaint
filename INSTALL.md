@@ -45,19 +45,21 @@ chmod 600 /etc/sysmaint/.Systems.sh
 Store your productive public keys outside the repository:
 
 ```bash
-cp keys/old_user.pub /etc/sysmaint/keys/old_user.pub
-cp keys/new_user.pub /etc/sysmaint/keys/new_user.pub
+install -d -m 700 /etc/sysmaint/keys/managed
+cp keys/managed/*.pub /etc/sysmaint/keys/managed/
 cp keys/backup.pub /etc/sysmaint/keys/backup.pub
 cp repository/.bash_local /etc/sysmaint/repository/.bash_local
 cp repository/.vimrc /etc/sysmaint/repository/.vimrc
-vi /etc/sysmaint/keys/old_user.pub
-vi /etc/sysmaint/keys/new_user.pub
+vi /etc/sysmaint/keys/managed/admin-old.pub
+vi /etc/sysmaint/keys/managed/admin-new.pub
 vi /etc/sysmaint/keys/backup.pub
 vi /etc/sysmaint/repository/.bash_local
 vi /etc/sysmaint/repository/.vimrc
-chmod 600 /etc/sysmaint/keys/*.pub
+chmod 600 /etc/sysmaint/keys/managed/*.pub /etc/sysmaint/keys/backup.pub
 chmod 600 /etc/sysmaint/repository/.bash_local /etc/sysmaint/repository/.vimrc
 ```
+
+If you still use the older flat layout with `old_user.pub` and `new_user.pub`, SysMaint continues to accept it as a fallback until you move to `keys/managed/`.
 
 ## 5. Run tasks with external configuration
 
@@ -111,3 +113,22 @@ cd /root/SysMaint
 - Keep productive inventory and real key files outside the repository.
 - Commit script and documentation changes normally.
 - If you need audited local runtime changes, version `/etc/sysmaint` separately in another private repository or in a secure configuration management system.
+
+## Optional runtime tuning in `/etc/sysmaint/.Systems.sh`
+
+You can keep additional runtime defaults in the same external inventory file, for example:
+
+```bash
+KEYS_MANAGED_DIR=/etc/sysmaint/keys/managed
+BACKUP_KEY_FILE=/etc/sysmaint/keys/backup.pub
+
+SHELL_PACKAGES_D="bash-completion vim less"
+SHELL_PACKAGES_U="$SHELL_PACKAGES_D"
+SHELL_PACKAGES_S="vim less"
+
+AUTOFS_PACKAGES_D="autofs cifs-utils nfs-common sshfs"
+
+RSYSLOG_TARGET_HOST="syslog.home.arpa"
+RSYSLOG_TARGET_PORT=1514
+RSYSLOG_TARGET_PROTOCOL="udp"
+```

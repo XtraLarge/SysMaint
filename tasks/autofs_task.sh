@@ -7,6 +7,62 @@ source "$BASE_DIR/lib/common.sh"
 AUTOFS_BASEDIR=${AUTOFS_BASEDIR:-/etc/auto.master.d}
 AUTOFS_MAPS_DIR=${AUTOFS_MAPS_DIR:-$AUTOFS_BASEDIR/maps}
 AUTOFS_FILESYSTEMS=${AUTOFS_FILESYSTEMS:-loop sshfs cifs nfs}
+autofs_packages_for_current_os() {
+  local var_name="AUTOFS_PACKAGES_${BS:-}"
+  local packages
+
+  case "${BS:-}" in
+    D|U)
+      packages="autofs cifs-utils nfs-common sshfs"
+      ;;
+    S)
+      packages="autofs cifs-utils nfs-client sshfs"
+      ;;
+    *)
+      packages=${AUTOFS_PACKAGES_DEFAULT:-}
+      ;;
+  esac
+
+  if declare -p "$var_name" >/dev/null 2>&1; then
+    packages=${!var_name}
+  fi
+
+  printf '%s' "$packages"
+}
+
+ensure_local_packages() {
+  local packages missing=() pkg
+  packages=$(autofs_packages_for_current_os)
+  [[ -n $packages ]] || return 0
+
+  if command -v apt-get >/dev/null 2>&1 && command -v dpkg-query >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    for pkg in $packages; do
+      dpkg-query -W -f='${Status}\n' "$pkg" 2>/dev/null | grep -Fqx 'install ok installed' || missing+=("$pkg")
+    done
+
+    if (( ${#missing[@]} > 0 )); then
+      info "Installiere fehlende AutoFS-Pakete: ${missing[*]}"
+      apt-get update
+      apt-get -y install "${missing[@]}"
+    fi
+    return 0
+  fi
+
+  if command -v zypper >/dev/null 2>&1 && command -v rpm >/dev/null 2>&1; then
+    for pkg in $packages; do
+      rpm -q "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
+    done
+
+    if (( ${#missing[@]} > 0 )); then
+      info "Installiere fehlende AutoFS-Pakete: ${missing[*]}"
+      zypper --non-interactive install "${missing[@]}"
+    fi
+    return 0
+  fi
+
+  warn "Kein unterstützter Paketmanager für AutoFS-Paketprüfung gefunden"
+}
 
 ensure_dir() {
   local dir=$1
@@ -84,6 +140,7 @@ create_fs_map_if_missing() {
 }
 
 info "Pflege AutoFS-Dateien fuer ${Name}"
+ensure_local_packages
 ensure_dir "$AUTOFS_BASEDIR"
 ensure_dir "$AUTOFS_MAPS_DIR"
 
