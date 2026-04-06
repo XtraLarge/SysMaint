@@ -71,10 +71,10 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-a
 
 ## 6. Restrict host scope when needed
 
-`--only` matches exactly the `IP` field from your inventory:
+`only` matches exactly the `IP` field from your inventory:
 
 ```bash
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh --only app-01.example.net
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only app-01.example.net
 ```
 
 ## 7. Review results

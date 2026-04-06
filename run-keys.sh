@@ -6,7 +6,7 @@ usage() {
   cat <<'EOF_USAGE'
 Verwendung:
   ./run-keys.sh full
-  ./run-keys.sh --only IP-ODER-DNS
+  ./run-keys.sh only IP-ODER-DNS
   ./run-keys.sh --help
 EOF_USAGE
 }
@@ -20,8 +20,9 @@ case "${1:-}" in
     shift
     exec "$BASE_DIR/manage.sh" KY "$BASE_DIR/tasks/keys_task.sh" "$@"
     ;;
-  --only)
-    exec "$BASE_DIR/manage.sh" KY "$BASE_DIR/tasks/keys_task.sh" "$@"
+  only)
+    shift
+    exec "$BASE_DIR/manage.sh" KY "$BASE_DIR/tasks/keys_task.sh" --only "$@"
     ;;
   *)
     usage >&2
