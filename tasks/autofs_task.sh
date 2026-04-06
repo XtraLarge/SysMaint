@@ -171,7 +171,7 @@ create_fs_map_if_missing() {
     sshfs)
       sshfs_opts='rw,nodev,noatime,allow_other,max_read=65536,users'
       if [[ -n ${JP:-} ]]; then
-        sshfs_opts+=",ssh_command=ssh\\040-o\\040ProxyJump=root@${JP}"
+        sshfs_opts+=",ssh_command=/usr/bin/ssh\\040-oProxyJump=root@${JP}"
       fi
       {
         printf '# AutoFS mountpoints for %s\n' "$Name"
