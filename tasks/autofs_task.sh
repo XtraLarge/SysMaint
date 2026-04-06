@@ -118,7 +118,7 @@ EOF
     fi
   fi
 
-  info "Erzeuge SSHFS-Jump-Wrapper: $wrapper_path"
+  info "Erzeuge SSHFS-Jump-Wrapper: $wrapper_path" >&2
   printf '%s\n' "$desired_content" > "$wrapper_path"
   chmod 0755 "$wrapper_path"
   AUTOFS_CHANGED=1
