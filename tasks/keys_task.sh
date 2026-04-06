@@ -36,7 +36,9 @@ collect_managed_keys() {
     for file in "$MANAGED_KEY_DIR"/*.pub; do
       [[ -e $file ]] || continue
       require_file "$file"
-      cat "$file"
+      while IFS= read -r line || [[ -n $line ]]; do
+        printf '%s\n' "$line"
+      done < "$file"
       found=1
     done
   fi
@@ -44,8 +46,12 @@ collect_managed_keys() {
   if (( found == 0 )); then
     require_file "$OLD_KEY_FILE"
     require_file "$NEW_KEY_FILE"
-    cat "$OLD_KEY_FILE"
-    cat "$NEW_KEY_FILE"
+    while IFS= read -r line || [[ -n $line ]]; do
+      printf '%s\n' "$line"
+    done < "$OLD_KEY_FILE"
+    while IFS= read -r line || [[ -n $line ]]; do
+      printf '%s\n' "$line"
+    done < "$NEW_KEY_FILE"
   fi
 }
 
@@ -53,11 +59,14 @@ if [[ ${BK:-0} == "1" ]]; then
   require_file "$BACKUP_KEY_FILE"
 fi
 
-desired_keys=$(collect_managed_keys)
-if [[ ${BK:-0} == "1" ]]; then
-  backup_key=$(<"$BACKUP_KEY_FILE")
-  desired_keys+=$(printf '%s\n' "$backup_key")
-fi
+desired_keys=$(
+  collect_managed_keys
+  if [[ ${BK:-0} == "1" ]]; then
+    while IFS= read -r line || [[ -n $line ]]; do
+      printf '%s\n' "$line"
+    done < "$BACKUP_KEY_FILE"
+  fi
+)
 
 desired_keys=$(printf '%s\n' "$desired_keys" | awk 'NF && !seen[$0]++')
 managed_keys=$(printf '%s\n' "$desired_keys" | awk 'NF { if (count++) print ""; print }')
