@@ -106,3 +106,4 @@ It creates:
 
 It only creates missing files and does not overwrite existing files.
 If new files were created, it reloads or restarts the local `autofs` service so the new definitions become active.
+For `sshfs` example maps, a configured `JP` value is translated into an `ssh_command` with `ProxyJump`.

@@ -101,6 +101,7 @@ create_master_map_if_missing() {
 create_fs_map_if_missing() {
   local filesystem=$1
   local mapfile=$2
+  local sshfs_opts
 
   [[ -f $mapfile ]] && {
     info "AutoFS-Map vorhanden: $mapfile"
@@ -131,11 +132,18 @@ create_fs_map_if_missing() {
       } > "$mapfile"
       ;;
     sshfs)
+      sshfs_opts='rw,nodev,noatime,allow_other,max_read=65536,users'
+      if [[ -n ${JP:-} ]]; then
+        sshfs_opts+=",ssh_command=ssh\\040-o\\040ProxyJump=root@${JP}"
+      fi
       {
         printf '# AutoFS mountpoints for %s\n' "$Name"
         printf '#\n'
-        printf '#AutoMountPoint  -fstype=fuse,rw,nodev,noatime,allow_other,max_read=65536,users :sshfs#remoteuser@%s:/remote/path\n' "$IP"
-        printf 'rootfs           -fstype=fuse,rw,nodev,noatime,allow_other,max_read=65536,users :sshfs#root@%s:/\n' "$IP"
+        if [[ -n ${JP:-} ]]; then
+          printf '# Jump host for this target: %s\n' "$JP"
+        fi
+        printf '#AutoMountPoint  -fstype=fuse,%s :sshfs#remoteuser@%s:/remote/path\n' "$sshfs_opts" "$IP"
+        printf 'rootfs           -fstype=fuse,%s :sshfs#root@%s:/\n' "$sshfs_opts" "$IP"
       } > "$mapfile"
       ;;
     *)
