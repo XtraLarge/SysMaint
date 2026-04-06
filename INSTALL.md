@@ -78,6 +78,17 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh --only app-01.example.net
 less logs/last_run.log
 ```
 
+## 8. Update the local installation
+
+If the repository was cloned to `/root/SysMaint`, you can update it with:
+
+```bash
+cd /root/SysMaint
+./scripts/update-local.sh
+```
+
+You can also install a small wrapper such as `/usr/local/bin/sysmaint-update` that just calls that script.
+
 ## Recommended Git practice
 
 - Keep the repository content generic and publishable.

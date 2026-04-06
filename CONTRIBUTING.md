@@ -88,3 +88,18 @@ That script:
 5. creates a release commit
 6. creates an annotated tag
 7. pushes the commit and tag to GitHub
+
+## Updating an installed copy
+
+For a production-style clone on the management host:
+
+```bash
+cd /root/SysMaint
+./scripts/update-local.sh
+```
+
+The update script requires:
+
+- clean working tree
+- current branch is `main`
+- fast-forward update from `origin/main`

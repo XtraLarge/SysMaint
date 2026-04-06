@@ -97,6 +97,7 @@ The repository includes small helper scripts for disciplined GitHub usage:
 - `./scripts/check.sh`
 - `./scripts/open-pr.sh`
 - `./scripts/release.sh v0.2.0 "Short release title"`
+- `./scripts/update-local.sh`
 
 Release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
 
