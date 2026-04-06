@@ -39,6 +39,7 @@ Beispiele:
 
 Host-Filter:
   --only WERT   exakter Treffer auf IP oder DNS-Name aus .Systems.sh
+                mehrfach angebbar
 
 Optionen per Environment:
   SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
@@ -59,12 +60,16 @@ host_matches_filter() {
   local ip selector
   ip=$(trim "${IP:-}")
 
-  if [[ -z ${FILTER_ONLY:-} ]]; then
+  if (( ${#FILTER_ONLYS[@]} == 0 )); then
     return 0
   fi
 
-  selector=$(trim "$FILTER_ONLY")
-  [[ $ip == "$selector" ]]
+  for selector in "${FILTER_ONLYS[@]}"; do
+    selector=$(trim "$selector")
+    [[ $ip == "$selector" ]] && return 0
+  done
+
+  return 1
 }
 
 init_status_file() {
@@ -120,14 +125,25 @@ FLAG=$1
 TASK_SCRIPT=$2
 shift 2
 
-FILTER_ONLY=""
+FILTER_ONLYS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --only)
-      FILTER_ONLY=${2:-}
-      [[ -n $FILTER_ONLY ]] || { err "--only benötigt eine IP oder einen DNS-Namen"; exit 1; }
-      shift 2
+      shift
+      [[ $# -gt 0 ]] || { err "--only benötigt mindestens eine IP oder einen DNS-Namen"; exit 1; }
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --|--name|--ip|--id|--only)
+            break
+            ;;
+          *)
+            FILTER_ONLYS+=("$1")
+            shift
+            ;;
+        esac
+      done
+      (( ${#FILTER_ONLYS[@]} > 0 )) || { err "--only benötigt mindestens eine IP oder einen DNS-Namen"; exit 1; }
       ;;
     --)
       shift
@@ -164,9 +180,9 @@ init_status_file
 info "Logdatei dieser Ausführung: $LOG_FILE"
 info "Statusdatei dieser Ausführung: $STATUS_FILE"
 info "Starte Verarbeitung für Flag $FLAG mit Task $TASK_SCRIPT"
-if [[ -n $FILTER_ONLY ]]; then
+if (( ${#FILTER_ONLYS[@]} > 0 )); then
   info "Host-Filter aktiv"
-  info "  only=$FILTER_ONLY"
+  info "  only=${FILTER_ONLYS[*]}"
 fi
 
 processed=0
@@ -231,7 +247,7 @@ if [[ $FLAG == "UP" ]]; then
 fi
 
 if (( matched == 0 )); then
-  if [[ -n $FILTER_ONLY ]]; then
+  if (( ${#FILTER_ONLYS[@]} > 0 )); then
     warn "Kein System hat auf den angegebenen Filter gepasst"
     append_status "-" "-" "$FLAG" "INFO" "Kein System für gesetzten Host-Filter gefunden"
   else

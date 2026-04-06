@@ -22,6 +22,7 @@ bash -n \
 grep -RInE '(192\.168\.|10\.[0-9]+\.|ssh-rsa|BEGIN .*PRIVATE KEY|fritz\.box|ConAction|Xtra|Hans-Willi|XLBackup)' \
   "$BASE_DIR" \
   --exclude-dir=.git \
+  --exclude-dir=logs \
   --exclude-dir=keys.override \
   --exclude-dir=repository.override \
   --exclude=CHANGELOG.md \

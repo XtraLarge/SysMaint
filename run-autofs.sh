@@ -6,7 +6,7 @@ usage() {
   cat <<'EOF_USAGE'
 Verwendung:
   ./run-autofs.sh full
-  ./run-autofs.sh only IP-ODER-DNS
+  ./run-autofs.sh only IP-ODER-DNS [WEITERE...]
   ./run-autofs.sh --help
 EOF_USAGE
 }
@@ -22,6 +22,7 @@ case "${1:-}" in
     ;;
   only)
     shift
+    [[ $# -gt 0 ]] || { usage >&2; exit 1; }
     exec "$BASE_DIR/manage.sh" AF "$BASE_DIR/tasks/autofs_task.sh" --only "$@"
     ;;
   *)
