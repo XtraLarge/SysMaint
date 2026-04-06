@@ -34,7 +34,13 @@ Before merging to `main`:
 Create a branch:
 
 ```bash
-git checkout -b fix/ssh-key-rollout
+./scripts/start-branch.sh fix ssh-key-rollout
+```
+
+Run checks:
+
+```bash
+./scripts/check.sh
 ```
 
 Commit changes:
@@ -44,16 +50,10 @@ git add <files>
 git commit -m "Fix managed SSH key block handling"
 ```
 
-Push the branch:
+Push the branch and open a pull request:
 
 ```bash
-git push -u origin fix/ssh-key-rollout
-```
-
-Create a pull request:
-
-```bash
-gh pr create --fill
+./scripts/open-pr.sh
 ```
 
 ## Protected main branch
@@ -68,3 +68,23 @@ gh pr create --fill
 - block branch deletion
 
 Those rules prevent undocumented direct changes and preserve a clean, revertible version history.
+
+## Releases
+
+Every release should point to a usable state on `main`.
+
+Create a release tag and update the changelog with:
+
+```bash
+./scripts/release.sh v0.2.0 "Short release summary"
+```
+
+That script:
+
+1. verifies that you are on `main`
+2. pulls the latest `main`
+3. runs repository checks
+4. updates `CHANGELOG.md`
+5. creates a release commit
+6. creates an annotated tag
+7. pushes the commit and tag to GitHub

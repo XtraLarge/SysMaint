@@ -24,6 +24,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - `tasks/shell_task.sh`: shell baseline rollout
 - `tasks/autofs_task.sh`: local AutoFS file generation
 - `run-*.sh`: convenience wrappers around `manage.sh`
+- `scripts/`: helper scripts for checks, PR workflow, and releases
 - `repository/`: example shell and editor dotfiles
 - `keys/`: example public key files for the key rollout
 - `logs/`: runtime output directory, kept out of versioned logs by `.gitignore`
@@ -88,6 +89,17 @@ Operationally, that means:
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the exact workflow.
 
+## Workflow helpers
+
+The repository includes small helper scripts for disciplined GitHub usage:
+
+- `./scripts/start-branch.sh fix ssh-key-rollout`
+- `./scripts/check.sh`
+- `./scripts/open-pr.sh`
+- `./scripts/release.sh v0.2.0 "Short release title"`
+
+Release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## Sensitive data strategy
 
 This repository is designed to stay free of infrastructure secrets and internal naming:
@@ -110,6 +122,7 @@ For real environments, prefer one of these approaches:
 - Installation: [INSTALL.md](INSTALL.md)
 - Operations and task behavior: [OPERATIONS.md](OPERATIONS.md)
 - Change and release workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## Notes
 
