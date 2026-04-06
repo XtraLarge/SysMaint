@@ -71,10 +71,11 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-a
 
 ## 6. Restrict host scope when needed
 
-`only` matches exactly the `IP` or DNS field from your inventory, can take multiple values, and compares hostnames case-insensitively:
+`only` can take multiple values, matches case-insensitively against the inventory `IP`, DNS, and `Name` fields, and also resolves short hostnames against the local DNS suffix of the management host:
 
 ```bash
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only app-01.example.net
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only ghost
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-keys.sh only 192.0.2.20 192.0.2.21
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh only 192.0.2.20 --reset
 ```

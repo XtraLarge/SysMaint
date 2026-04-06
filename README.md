@@ -61,7 +61,7 @@ To run against one exact host entry from `.Systems.sh`:
 ./run-keys.sh only 192.0.2.20 --reset
 ```
 
-`only` matches the exact IP or DNS field from `.Systems.sh`, accepts multiple blank-separated values, and treats hostnames case-insensitively.
+`only` accepts multiple blank-separated values, matches case-insensitively against the inventory `IP`, DNS, and `Name` fields, and also resolves short hostnames against the local DNS suffix of the management host. For example, `only ghost` can match both `GHost` and `ghost.home.arpa`.
 Running against all matching systems now requires the explicit argument `full`.
 
 For SSH keys, `--reset` removes all non-SysMaint entries from `authorized_keys` on the selected targets and rebuilds the file from the managed key set only.

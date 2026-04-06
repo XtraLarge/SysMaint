@@ -38,7 +38,8 @@ Beispiele:
   ./manage.sh SH ./tasks/shell_task.sh --only 192.0.2.10
 
 Host-Filter:
-  --only WERT   exakter Treffer auf IP oder DNS-Name aus .Systems.sh
+  --only WERT   Treffer auf IP, DNS-Name oder Name aus .Systems.sh
+                kurzer Hostname wird zusätzlich gegen den lokalen DNS-Suffix geprüft
                 mehrfach angebbar
 
 Optionen per Environment:
@@ -56,10 +57,54 @@ trim() {
   printf '%s' "$value"
 }
 
+detect_local_dns_suffix() {
+  local line rest first suffix
+
+  if [[ -r /etc/resolv.conf ]]; then
+    while IFS= read -r line; do
+      case "$line" in
+        search[[:space:]]*|domain[[:space:]]*)
+          rest=${line#* }
+          first=${rest%%[[:space:]]*}
+          first=$(trim "$first")
+          if [[ -n $first ]]; then
+            printf '%s' "${first,,}"
+            return 0
+          fi
+          ;;
+      esac
+    done < /etc/resolv.conf
+  fi
+
+  suffix=$(hostname -d 2>/dev/null || true)
+  suffix=$(trim "$suffix")
+  if [[ -n $suffix ]]; then
+    printf '%s' "${suffix,,}"
+  fi
+}
+
+canonical_host_key() {
+  local value=${1-}
+  local suffix=${2-}
+
+  value=$(trim "$value")
+  value=${value,,}
+  [[ -n $value ]] || return 1
+
+  if [[ -n $suffix && $value == *."$suffix" ]]; then
+    value=${value%."$suffix"}
+  fi
+
+  printf '%s' "$value"
+}
+
 host_matches_filter() {
-  local ip selector normalized_ip normalized_selector
+  local ip name selector suffix normalized_ip normalized_name normalized_selector candidate
   ip=$(trim "${IP:-}")
+  name=$(trim "${Name:-}")
+  suffix=${LOCAL_DNS_SUFFIX:-}
   normalized_ip=${ip,,}
+  normalized_name=${name,,}
 
   if (( ${#FILTER_ONLYS[@]} == 0 )); then
     return 0
@@ -68,7 +113,21 @@ host_matches_filter() {
   for selector in "${FILTER_ONLYS[@]}"; do
     selector=$(trim "$selector")
     normalized_selector=${selector,,}
+    [[ -z $normalized_selector ]] && continue
+
     [[ $normalized_ip == "$normalized_selector" ]] && return 0
+    [[ $normalized_name == "$normalized_selector" ]] && return 0
+
+    candidate=$(canonical_host_key "$normalized_ip" "$suffix" || true)
+    [[ -n $candidate && $candidate == "$normalized_selector" ]] && return 0
+
+    candidate=$(canonical_host_key "$normalized_name" "$suffix" || true)
+    [[ -n $candidate && $candidate == "$normalized_selector" ]] && return 0
+
+    if [[ $normalized_selector != *.* && -n $suffix ]]; then
+      [[ $normalized_ip == "$normalized_selector.$suffix" ]] && return 0
+      [[ $normalized_name == "$normalized_selector.$suffix" ]] && return 0
+    fi
   done
 
   return 1
