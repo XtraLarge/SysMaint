@@ -121,6 +121,8 @@ cd /root/SysMaint
 You can keep additional runtime defaults in the same external inventory file, for example:
 
 ```bash
+DEFAULT_JOBS=8
+
 KEYS_MANAGED_DIR=/etc/sysmaint/keys/managed
 BACKUP_KEY_FILE=/etc/sysmaint/keys/backup.pub
 

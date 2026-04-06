@@ -30,6 +30,7 @@ source "$SYSTEMS_FILE"
 export_optional_config() {
   local var_name
   for var_name in \
+    DEFAULT_JOBS \
     KEYS_MANAGED_DIR MANAGED_KEY_DIR BACKUP_KEY_FILE \
     RSYSLOG_TARGET_HOST RSYSLOG_TARGET_PORT RSYSLOG_TARGET_PROTOCOL RSYSLOG_REMOTE_FILE \
     SHELL_PACKAGES_DEFAULT SHELL_PACKAGES_D SHELL_PACKAGES_U SHELL_PACKAGES_S SHELL_PACKAGES_B SHELL_PACKAGES_X \
@@ -59,7 +60,7 @@ Host-Filter:
   --only WERT   Treffer auf IP, DNS-Name oder Name aus .Systems.sh
                 kurzer Hostname wird zusätzlich gegen den lokalen DNS-Suffix geprüft
                 mehrfach angebbar
-  --jobs N      maximale Zahl gleichzeitiger Host-Jobs, Standard: 1
+  --jobs N      maximale Zahl gleichzeitiger Host-Jobs, Standard aus DEFAULT_JOBS oder 1
 
 Optionen per Environment:
   SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
@@ -348,7 +349,7 @@ TASK_SCRIPT=$2
 shift 2
 
 FILTER_ONLYS=()
-JOBS=1
+JOBS=${DEFAULT_JOBS:-1}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

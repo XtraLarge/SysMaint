@@ -11,6 +11,9 @@
 # Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP
 
 # Optional runtime configuration
+# Default bounded parallelism
+DEFAULT_JOBS=${DEFAULT_JOBS:-8}
+
 # Managed SSH keys:
 # - place the normal managed public keys in KEYS_MANAGED_DIR
 # - keep the backup key separate in BACKUP_KEY_FILE
