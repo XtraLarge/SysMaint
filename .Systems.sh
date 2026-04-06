@@ -8,11 +8,13 @@
 # - Comment lines start with #.
 #
 # Standard fields:
-# Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP, Host
+# Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP, Host, RB
 
 # Optional runtime configuration
 # Default bounded parallelism
 DEFAULT_JOBS=${DEFAULT_JOBS:-8}
+DEFAULT_REBOOT_DELAY=${DEFAULT_REBOOT_DELAY:-1}
+LOCAL_REBOOT_DELAY=${LOCAL_REBOOT_DELAY:-5}
 
 # Managed SSH keys:
 # - place the normal managed public keys in KEYS_MANAGED_DIR
@@ -39,7 +41,7 @@ RSYSLOG_TARGET_PROTOCOL=${RSYSLOG_TARGET_PROTOCOL:-udp}
 
 IFS=$'\n'
 mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
-!Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP !Host
+!Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP !Host !RB
 # Typ  P=Physical, V=Virtual, N=Network
 # ID   Freely chosen inventory ID
 # Name Display name
@@ -54,16 +56,17 @@ mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
 # AF   AutoFS       1=true, 0=false
 # JP   Jump host    host or IP, empty = direct connection
 # Host Optionaler Host/Hypervisor für Reboot-Abhängigkeiten
+# RB   Optionaler Reboot-Delay in Minuten
 #
 # Example environment
 ###############
-#Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP !Host
-V    #101 #mgmt-node         #192.0.2.10            #D  #1  #1  #1  #1  #1  #1  #1  #  #
-V    #102 #docker-node-a     #192.0.2.20            #D  #1  #1  #1  #1  #1  #1  #1  #  #fileserver
-V    #103 #docker-node-b     #192.0.2.21            #D  #1  #1  #1  #1  #1  #1  #1  #  #fileserver
-P    #201 #fileserver        #198.51.100.10         #D  #1  #1  #1  #1  #1  #1  #1  #  #
-V    #301 #branch-app        #app-01.example.net    #U  #1  #1  #0  #1  #1  #1  #0  #jump-gateway.example.net #
-N    #401 #edge-router       #router-01.example.net #X  #0  #0  #0  #0  #0  #0  #1  #  #
+#Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP !Host !RB
+V    #101 #mgmt-node         #192.0.2.10            #D  #1  #1  #1  #1  #1  #1  #1  #  #      #
+V    #102 #docker-node-a     #192.0.2.20            #D  #1  #1  #1  #1  #1  #1  #1  #  #fileserver #
+V    #103 #docker-node-b     #192.0.2.21            #D  #1  #1  #1  #1  #1  #1  #1  #  #fileserver #
+P    #201 #fileserver        #198.51.100.10         #D  #1  #1  #1  #1  #1  #1  #1  #  #      #
+V    #301 #branch-app        #app-01.example.net    #U  #1  #1  #0  #1  #1  #1  #0  #jump-gateway.example.net # #
+N    #401 #edge-router       #router-01.example.net #X  #0  #0  #0  #0  #0  #0  #1  #  #      #
 SYSTEMS_EOF
 
 : "${DEBUG:=}"
@@ -91,7 +94,7 @@ element() {
   local i value
   local -a ELEM=()
 
-  unset Typ ID Name IP BS UP FR BK KY RS SH AF JP Host
+  unset Typ ID Name IP BS UP FR BK KY RS SH AF JP Host RB
   IFS='#' read -r -a ELEM <<< "$LINE"
 
   for i in "${!HEAD[@]}"; do
@@ -107,6 +110,7 @@ element() {
 
   : "${JP:=}"
   : "${Host:=}"
+  : "${RB:=}"
 }
 
 systems_init() {

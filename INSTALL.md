@@ -122,6 +122,8 @@ You can keep additional runtime defaults in the same external inventory file, fo
 
 ```bash
 DEFAULT_JOBS=8
+DEFAULT_REBOOT_DELAY=1
+LOCAL_REBOOT_DELAY=5
 
 KEYS_MANAGED_DIR=/etc/sysmaint/keys/managed
 BACKUP_KEY_FILE=/etc/sysmaint/keys/backup.pub
@@ -138,3 +140,4 @@ RSYSLOG_TARGET_PROTOCOL="udp"
 ```
 
 You can also add an optional `Host` field to inventory entries when reboot dependencies matter. If both a guest and its host are queued for reboot, SysMaint now suppresses the separate guest reboot and reports it as covered by the host reboot.
+You can additionally use an optional `RB` field per inventory entry to set a reboot delay in minutes. Without `RB`, SysMaint uses `DEFAULT_REBOOT_DELAY`, except for the currently running management system and its host chain, which use `LOCAL_REBOOT_DELAY`.

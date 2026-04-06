@@ -82,6 +82,7 @@ Each inventory entry carries flags that decide which task is active for that tar
 - `AF`: generate AutoFS files for the host
 - `JP`: jump host for SSH and SCP access
 - `Host`: optional parent host or hypervisor for reboot dependency handling
+- `RB`: optional reboot delay in minutes for that system
 
 ## Change control
 
@@ -147,6 +148,7 @@ For real environments, prefer one of these approaches:
 
 - Logging supplements console output; it does not replace it.
 - Reboots are queued during update runs and scheduled only after all hosts were processed.
+- Reboot delays can be controlled globally with `DEFAULT_REBOOT_DELAY` and `LOCAL_REBOOT_DELAY`, or per host with the optional `RB` inventory field.
 - The SSH key task maintains exactly one backup file: `/root/.ssh/authorized_keys.bak`.
 - The SSH key task replaces only the marked SysMaint block in `authorized_keys`.
 - Normal managed SSH keys are read from `keys/managed/*.pub` or `/etc/sysmaint/keys/managed/*.pub`.

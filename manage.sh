@@ -31,6 +31,7 @@ export_optional_config() {
   local var_name
   for var_name in \
     DEFAULT_JOBS \
+    DEFAULT_REBOOT_DELAY LOCAL_REBOOT_DELAY \
     KEYS_MANAGED_DIR MANAGED_KEY_DIR BACKUP_KEY_FILE \
     RSYSLOG_TARGET_HOST RSYSLOG_TARGET_PORT RSYSLOG_TARGET_PROTOCOL RSYSLOG_REMOTE_FILE \
     SHELL_PACKAGES_DEFAULT SHELL_PACKAGES_D SHELL_PACKAGES_U SHELL_PACKAGES_S SHELL_PACKAGES_B SHELL_PACKAGES_X \
@@ -157,6 +158,7 @@ build_inventory_maps() {
   local saved_af=${AF-}
   local saved_jp=${JP-}
   local saved_host=${Host-}
+  local saved_rb=${RB-}
   local line key name ip
 
   declare -gA INVENTORY_REF_TO_KEY=()
@@ -164,6 +166,7 @@ build_inventory_maps() {
   declare -gA INVENTORY_IP_BY_KEY=()
   declare -gA INVENTORY_JP_BY_KEY=()
   declare -gA INVENTORY_HOST_BY_KEY=()
+  declare -gA INVENTORY_RB_BY_KEY=()
 
   for line in "${HOSTNAMES[@]}"; do
     [[ $line == \#* ]] && continue
@@ -187,6 +190,7 @@ build_inventory_maps() {
     INVENTORY_IP_BY_KEY["$key"]=$ip
     INVENTORY_JP_BY_KEY["$key"]=${JP:-}
     INVENTORY_HOST_BY_KEY["$key"]=${Host:-}
+    INVENTORY_RB_BY_KEY["$key"]=${RB:-}
 
     register_inventory_ref "$name" "$key"
     register_inventory_ref "$ip" "$key"
@@ -207,6 +211,7 @@ build_inventory_maps() {
   AF=$saved_af
   JP=$saved_jp
   Host=$saved_host
+  RB=$saved_rb
 }
 
 resolve_inventory_ref() {
@@ -278,8 +283,62 @@ sanitize_job_name() {
 }
 
 run_task_for_current_host() {
-  export Typ ID Name IP BS UP FR BK KY RS SH AF JP Host REBOOT_QUEUE_FILE STATUS_FILE
+  export Typ ID Name IP BS UP FR BK KY RS SH AF JP Host RB REBOOT_QUEUE_FILE STATUS_FILE
   TASK_NAME="$FLAG" TASK_SCRIPT="$TASK_SCRIPT" BASE_DIR="$BASE_DIR" SYSTEMS_FILE="$SYSTEMS_FILE" bash "$TASK_SCRIPT" "${TASK_ARGS[@]}"
+}
+
+build_local_execution_scope() {
+  local ref key parent_ref parent_key
+  local suffix=${LOCAL_DNS_SUFFIX:-}
+  local -a local_refs=()
+  declare -gA LOCAL_EXECUTION_KEYS=()
+
+  local_refs+=("$(hostname 2>/dev/null || true)")
+  local_refs+=("$(hostname -s 2>/dev/null || true)")
+  local_refs+=("$(hostname -f 2>/dev/null || true)")
+
+  while IFS= read -r ref; do
+    [[ -n $ref ]] || continue
+    local_refs+=("$ref")
+  done < <(hostname -I 2>/dev/null | tr ' ' '\n')
+
+  for ref in "${local_refs[@]}"; do
+    ref=$(trim "$ref")
+    [[ -n $ref ]] || continue
+    key=$(resolve_inventory_ref "$ref" || true)
+    [[ -n $key ]] || key=$(canonical_host_key "$ref" "$suffix" || true)
+    [[ -n $key ]] || continue
+    LOCAL_EXECUTION_KEYS["$key"]=1
+  done
+
+  for key in "${!LOCAL_EXECUTION_KEYS[@]}"; do
+    parent_key=$key
+    while :; do
+      parent_ref=${INVENTORY_HOST_BY_KEY[$parent_key]-}
+      [[ -n $parent_ref ]] || break
+      parent_key=$(resolve_inventory_ref "$parent_ref" || true)
+      [[ -n $parent_key ]] || break
+      [[ -n ${LOCAL_EXECUTION_KEYS[$parent_key]+x} ]] && break
+      LOCAL_EXECUTION_KEYS["$parent_key"]=1
+    done
+  done
+}
+
+reboot_delay_for_key() {
+  local key=${1-}
+  local delay=${INVENTORY_RB_BY_KEY[$key]-}
+
+  if [[ -n $delay ]]; then
+    printf '%s' "$delay"
+    return 0
+  fi
+
+  if [[ -n ${LOCAL_EXECUTION_KEYS[$key]+x} ]]; then
+    printf '%s' "${LOCAL_REBOOT_DELAY:-5}"
+    return 0
+  fi
+
+  printf '%s' "${DEFAULT_REBOOT_DELAY:-1}"
 }
 
 start_parallel_job() {
@@ -410,7 +469,7 @@ wait_for_all_parallel_jobs() {
 
 schedule_queued_reboots() {
   local queue_file=$1
-  local reboot_name reboot_ip reboot_jp reboot_key target_key current parent_ref parent_key
+  local reboot_name reboot_ip reboot_jp reboot_key target_key current parent_ref parent_key reboot_delay
   local display_name display_ip
   local -a requested_order=()
   local -a planned_order=()
@@ -429,6 +488,7 @@ schedule_queued_reboots() {
   }
 
   build_inventory_maps
+  build_local_execution_scope
 
   while IFS='|' read -r reboot_name reboot_ip reboot_jp; do
     [[ -n ${reboot_name:-} && -n ${reboot_ip:-} ]] || continue
@@ -476,11 +536,12 @@ schedule_queued_reboots() {
     fi
   done
 
-  warn "${#planned_order[@]} System(e) werden jetzt in 5 Minuten direkt neu gestartet:"
+  warn "${#planned_order[@]} System(e) werden jetzt zum Reboot eingeplant:"
   for current in "${planned_order[@]}"; do
     display_name=${requested_name[$current]}
     display_ip=${requested_ip[$current]}
-    printf '%s (%s)\n' "$display_name" "$display_ip"
+    reboot_delay=$(reboot_delay_for_key "$current")
+    printf '%s (%s) in %s Minute(n)\n' "$display_name" "$display_ip" "$reboot_delay"
   done
   if (( ${#covered_reboots[@]} > 0 )); then
     info "${#covered_reboots[@]} System(e) werden nicht separat rebootet, weil ihr Host ebenfalls rebootet:"
@@ -492,15 +553,16 @@ schedule_queued_reboots() {
     reboot_name=${requested_name[$current]}
     reboot_ip=${requested_ip[$current]}
     reboot_jp=${requested_jp[$current]}
+    reboot_delay=$(reboot_delay_for_key "$current")
     Name=$reboot_name
     IP=$reboot_ip
     JP=$reboot_jp
     export Name IP JP
 
-    info "Plane Reboot für ${Name} in 5 Minuten"
-    if run_ssh "shutdown -r +5 'Automatischer Neustart nach Wartung'" </dev/null; then
+    info "Plane Reboot für ${Name} in ${reboot_delay} Minute(n)"
+    if run_ssh "shutdown -r +${reboot_delay} 'Automatischer Neustart nach Wartung'" </dev/null; then
       info "Reboot für ${Name} erfolgreich vorgemerkt"
-      append_status "$Name" "$IP" "$FLAG" "REBOOT_QUEUED" "Neustart in 5 Minuten geplant"
+      append_status "$Name" "$IP" "$FLAG" "REBOOT_QUEUED" "Neustart in ${reboot_delay} Minuten geplant"
     else
       warn "Reboot für ${Name} konnte nicht vorgemerkt werden"
       append_status "$Name" "$IP" "$FLAG" "REBOOT_FAILED" "Neustart konnte nicht geplant werden"
