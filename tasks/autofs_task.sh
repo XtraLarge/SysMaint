@@ -7,6 +7,7 @@ source "$BASE_DIR/lib/common.sh"
 AUTOFS_BASEDIR=${AUTOFS_BASEDIR:-/etc/auto.master.d}
 AUTOFS_MAPS_DIR=${AUTOFS_MAPS_DIR:-$AUTOFS_BASEDIR/maps}
 AUTOFS_FILESYSTEMS=${AUTOFS_FILESYSTEMS:-loop sshfs cifs nfs}
+AUTOFS_CHANGED=0
 autofs_packages_for_current_os() {
   local var_name="AUTOFS_PACKAGES_${BS:-}"
   local packages
@@ -94,6 +95,7 @@ create_master_map_if_missing() {
         "${fs}/${Name}" "${fs}/${Name}.map"
     done
   } > "$mapfile"
+  AUTOFS_CHANGED=1
 }
 
 create_fs_map_if_missing() {
@@ -143,6 +145,29 @@ create_fs_map_if_missing() {
       } > "$mapfile"
       ;;
   esac
+  AUTOFS_CHANGED=1
+}
+
+reload_autofs_if_needed() {
+  (( AUTOFS_CHANGED == 1 )) || {
+    info "Keine neuen AutoFS-Dateien erzeugt, kein Service-Neustart nötig"
+    return 0
+  }
+
+  if command -v systemctl >/dev/null 2>&1; then
+    info "Lade AutoFS-Service neu"
+    systemctl enable --now autofs >/dev/null 2>&1 || true
+    systemctl reload autofs >/dev/null 2>&1 || systemctl restart autofs
+    return 0
+  fi
+
+  if command -v service >/dev/null 2>&1; then
+    info "Starte AutoFS-Service neu"
+    service autofs restart
+    return 0
+  fi
+
+  warn "Kein unterstützter Service-Manager für AutoFS gefunden"
 }
 
 info "Pflege AutoFS-Dateien fuer ${Name}"
@@ -158,3 +183,5 @@ for filesystem in $AUTOFS_FILESYSTEMS; do
   ensure_dir "$filesystem_dir"
   create_fs_map_if_missing "$filesystem" "${filesystem_dir}/${Name}.map"
 done
+
+reload_autofs_if_needed
