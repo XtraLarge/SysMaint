@@ -265,8 +265,7 @@ info "Übersprungen: $skipped"
 info "Fehlgeschlagen: $failed"
 
 if (( failed > 0 )); then
-  failed_hosts_text=$(printf '%s, ' "${failed_hosts[@]}")
-  failed_hosts_text=${failed_hosts_text%, }
+  failed_hosts_text=$(printf '\n%s' "${failed_hosts[@]}")
   warn "Fehlgeschlagene Systeme: ${failed_hosts_text}"
   exit 1
 fi
