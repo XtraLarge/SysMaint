@@ -21,6 +21,11 @@ run_task() {
   remote_script="$(cat <<EOF_REMOTE
 set -euo pipefail
 
+BASH_LOCAL_BEGIN="# BEGIN SYSMAINT MANAGED BASH_LOCAL"
+BASH_LOCAL_END="# END SYSMAINT MANAGED BASH_LOCAL"
+VIMRC_BEGIN="\" BEGIN SYSMAINT MANAGED VIMRC"
+VIMRC_END="\" END SYSMAINT MANAGED VIMRC"
+
 export DEBIAN_FRONTEND=noninteractive
 
 if command -v apt-get >/dev/null 2>&1; then
@@ -50,13 +55,54 @@ if command -v debconf-set-selections >/dev/null 2>&1 && command -v dpkg-reconfig
   dpkg-reconfigure -f noninteractive locales
 fi
 
-cat > /root/.bash_local <<'EOF_BASH_LOCAL'
+update_managed_file() {
+  local target_file=$1
+  local begin_marker=$2
+  local end_marker=$3
+  local content_file=$4
+  local base_file
+  local output_file
+
+  base_file=\$(mktemp)
+  output_file=\$(mktemp)
+
+  if [[ -f \$target_file ]]; then
+    awk -v begin="\$begin_marker" -v end="\$end_marker" '
+      \$0 == begin { skip = 1; next }
+      \$0 == end { skip = 0; next }
+      skip == 0 { print }
+    ' "\$target_file" > "\$base_file"
+  else
+    : > "\$base_file"
+  fi
+
+  cat "\$base_file" > "\$output_file"
+  if [[ -s \$output_file ]]; then
+    printf "\\n" >> "\$output_file"
+  fi
+
+  printf "%s\\n" "\$begin_marker" >> "\$output_file"
+  cat "\$content_file" >> "\$output_file"
+  printf "%s\\n" "\$end_marker" >> "\$output_file"
+
+  install -m 0644 "\$output_file" "\$target_file"
+  rm -f "\$base_file" "\$output_file"
+}
+
+TMP_BASH_LOCAL_CONTENT=\$(mktemp)
+TMP_VIMRC_CONTENT=\$(mktemp)
+
+cat > "\$TMP_BASH_LOCAL_CONTENT" <<'EOF_BASH_LOCAL'
 $(cat "$SHELL_BASH_LOCAL_FILE")
 EOF_BASH_LOCAL
 
-cat > /root/.vimrc <<'EOF_VIM'
+cat > "\$TMP_VIMRC_CONTENT" <<'EOF_VIM'
 $(cat "$SHELL_VIMRC_FILE")
 EOF_VIM
+
+update_managed_file /root/.bash_local "\$BASH_LOCAL_BEGIN" "\$BASH_LOCAL_END" "\$TMP_BASH_LOCAL_CONTENT"
+update_managed_file /root/.vimrc "\$VIMRC_BEGIN" "\$VIMRC_END" "\$TMP_VIMRC_CONTENT"
+rm -f "\$TMP_BASH_LOCAL_CONTENT" "\$TMP_VIMRC_CONTENT"
 
 if [[ ! -f /root/.bashrc ]]; then
   touch /root/.bashrc
