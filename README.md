@@ -81,6 +81,7 @@ Each inventory entry carries flags that decide which task is active for that tar
 - `SH`: deploy shell baseline files
 - `AF`: generate AutoFS files for the host
 - `JP`: jump host for SSH and SCP access
+- `Host`: optional parent host or hypervisor for reboot dependency handling
 
 ## Change control
 

@@ -136,3 +136,5 @@ RSYSLOG_TARGET_HOST="syslog.home.arpa"
 RSYSLOG_TARGET_PORT=1514
 RSYSLOG_TARGET_PROTOCOL="udp"
 ```
+
+You can also add an optional `Host` field to inventory entries when reboot dependencies matter. If both a guest and its host are queued for reboot, SysMaint now suppresses the separate guest reboot and reports it as covered by the host reboot.

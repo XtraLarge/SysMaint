@@ -120,6 +120,106 @@ canonical_host_key() {
 
 LOCAL_DNS_SUFFIX=$(detect_local_dns_suffix)
 
+register_inventory_ref() {
+  local ref=${1-}
+  local key=${2-}
+  local normalized canonical suffix
+
+  ref=$(trim "$ref")
+  [[ -n $ref && -n $key ]] || return 0
+
+  normalized=${ref,,}
+  INVENTORY_REF_TO_KEY["$normalized"]=$key
+
+  suffix=${LOCAL_DNS_SUFFIX:-}
+  canonical=$(canonical_host_key "$normalized" "$suffix" || true)
+  if [[ -n $canonical ]]; then
+    INVENTORY_REF_TO_KEY["$canonical"]=$key
+    if [[ -n $suffix && $canonical != *.* ]]; then
+      INVENTORY_REF_TO_KEY["$canonical.$suffix"]=$key
+    fi
+  fi
+}
+
+build_inventory_maps() {
+  local saved_line=${LINE-}
+  local saved_typ=${Typ-}
+  local saved_id=${ID-}
+  local saved_name=${Name-}
+  local saved_ip=${IP-}
+  local saved_bs=${BS-}
+  local saved_up=${UP-}
+  local saved_fr=${FR-}
+  local saved_bk=${BK-}
+  local saved_ky=${KY-}
+  local saved_rs=${RS-}
+  local saved_sh=${SH-}
+  local saved_af=${AF-}
+  local saved_jp=${JP-}
+  local saved_host=${Host-}
+  local line key name ip
+
+  declare -gA INVENTORY_REF_TO_KEY=()
+  declare -gA INVENTORY_NAME_BY_KEY=()
+  declare -gA INVENTORY_IP_BY_KEY=()
+  declare -gA INVENTORY_JP_BY_KEY=()
+  declare -gA INVENTORY_HOST_BY_KEY=()
+
+  for line in "${HOSTNAMES[@]}"; do
+    [[ $line == \#* ]] && continue
+    if [[ $line == \!* ]]; then
+      LINE=$line
+      header
+      continue
+    fi
+
+    LINE=$line
+    element
+
+    name=$(trim "${Name:-}")
+    ip=$(trim "${IP:-}")
+    [[ -n $name || -n $ip ]] || continue
+
+    key=$(canonical_host_key "${name:-$ip}" "${LOCAL_DNS_SUFFIX:-}" || true)
+    [[ -n $key ]] || key=${ip,,}
+
+    INVENTORY_NAME_BY_KEY["$key"]=$name
+    INVENTORY_IP_BY_KEY["$key"]=$ip
+    INVENTORY_JP_BY_KEY["$key"]=${JP:-}
+    INVENTORY_HOST_BY_KEY["$key"]=${Host:-}
+
+    register_inventory_ref "$name" "$key"
+    register_inventory_ref "$ip" "$key"
+  done
+
+  LINE=$saved_line
+  Typ=$saved_typ
+  ID=$saved_id
+  Name=$saved_name
+  IP=$saved_ip
+  BS=$saved_bs
+  UP=$saved_up
+  FR=$saved_fr
+  BK=$saved_bk
+  KY=$saved_ky
+  RS=$saved_rs
+  SH=$saved_sh
+  AF=$saved_af
+  JP=$saved_jp
+  Host=$saved_host
+}
+
+resolve_inventory_ref() {
+  local ref=${1-}
+  local normalized
+
+  ref=$(trim "$ref")
+  [[ -n $ref ]] || return 1
+  normalized=${ref,,}
+  [[ -n ${INVENTORY_REF_TO_KEY[$normalized]+x} ]] || return 1
+  printf '%s' "${INVENTORY_REF_TO_KEY[$normalized]}"
+}
+
 host_matches_filter() {
   local ip name selector suffix normalized_ip normalized_name normalized_selector candidate
   ip=$(trim "${IP:-}")
@@ -178,7 +278,7 @@ sanitize_job_name() {
 }
 
 run_task_for_current_host() {
-  export Typ ID Name IP BS UP FR BK KY RS SH AF JP REBOOT_QUEUE_FILE STATUS_FILE
+  export Typ ID Name IP BS UP FR BK KY RS SH AF JP Host REBOOT_QUEUE_FILE STATUS_FILE
   TASK_NAME="$FLAG" TASK_SCRIPT="$TASK_SCRIPT" BASE_DIR="$BASE_DIR" SYSTEMS_FILE="$SYSTEMS_FILE" bash "$TASK_SCRIPT" "${TASK_ARGS[@]}"
 }
 
@@ -310,8 +410,17 @@ wait_for_all_parallel_jobs() {
 
 schedule_queued_reboots() {
   local queue_file=$1
-  local reboot_name reboot_ip reboot_jp
-  local -a queued_reboots=()
+  local reboot_name reboot_ip reboot_jp reboot_key target_key current parent_ref parent_key
+  local display_name display_ip
+  local -a requested_order=()
+  local -a planned_order=()
+  local -a covered_reboots=()
+  local -A requested_set=()
+  local -A requested_name=()
+  local -A requested_ip=()
+  local -A requested_jp=()
+  local -A planned_set=()
+  local -A seen_chain=()
 
   [[ -s $queue_file ]] || {
     info "Keine Reboots vorgemerkt"
@@ -319,17 +428,70 @@ schedule_queued_reboots() {
     return 0
   }
 
+  build_inventory_maps
+
   while IFS='|' read -r reboot_name reboot_ip reboot_jp; do
     [[ -n ${reboot_name:-} && -n ${reboot_ip:-} ]] || continue
-    queued_reboots+=("${reboot_name} (${reboot_ip})")
+    reboot_key=$(resolve_inventory_ref "$reboot_name" || resolve_inventory_ref "$reboot_ip" || true)
+    if [[ -z $reboot_key ]]; then
+      reboot_key=$(canonical_host_key "${reboot_name:-$reboot_ip}" "${LOCAL_DNS_SUFFIX:-}" || true)
+      [[ -n $reboot_key ]] || reboot_key=${reboot_ip,,}
+    fi
+
+    if [[ -z ${requested_set[$reboot_key]+x} ]]; then
+      requested_order+=("$reboot_key")
+      requested_set["$reboot_key"]=1
+      requested_name["$reboot_key"]=$reboot_name
+      requested_ip["$reboot_key"]=$reboot_ip
+      requested_jp["$reboot_key"]=$reboot_jp
+    fi
   done < "$queue_file"
 
-  warn "${#queued_reboots[@]} System(e) werden jetzt in 5 Minuten neu gestartet:"
-  printf '%s\n' "${queued_reboots[@]}"
+  for reboot_key in "${requested_order[@]}"; do
+    target_key=$reboot_key
+    unset seen_chain
+    declare -A seen_chain=()
+    seen_chain["$target_key"]=1
+
+    while :; do
+      parent_ref=${INVENTORY_HOST_BY_KEY[$target_key]-}
+      [[ -n $parent_ref ]] || break
+      parent_key=$(resolve_inventory_ref "$parent_ref" || true)
+      [[ -n $parent_key ]] || break
+      [[ -n ${seen_chain[$parent_key]+x} ]] && break
+      seen_chain["$parent_key"]=1
+      [[ -n ${requested_set[$parent_key]+x} ]] || break
+      target_key=$parent_key
+    done
+
+    if [[ $target_key != "$reboot_key" ]]; then
+      covered_reboots+=("${requested_name[$reboot_key]} (${requested_ip[$reboot_key]}) -> ${requested_name[$target_key]} (${requested_ip[$target_key]})")
+      append_status "${requested_name[$reboot_key]}" "${requested_ip[$reboot_key]}" "$FLAG" "REBOOT_COVERED" "Durch Host-Reboot von ${requested_name[$target_key]} abgedeckt"
+      continue
+    fi
+
+    if [[ -z ${planned_set[$target_key]+x} ]]; then
+      planned_order+=("$target_key")
+      planned_set["$target_key"]=1
+    fi
+  done
+
+  warn "${#planned_order[@]} System(e) werden jetzt in 5 Minuten direkt neu gestartet:"
+  for current in "${planned_order[@]}"; do
+    display_name=${requested_name[$current]}
+    display_ip=${requested_ip[$current]}
+    printf '%s (%s)\n' "$display_name" "$display_ip"
+  done
+  if (( ${#covered_reboots[@]} > 0 )); then
+    info "${#covered_reboots[@]} System(e) werden nicht separat rebootet, weil ihr Host ebenfalls rebootet:"
+    printf '%s\n' "${covered_reboots[@]}"
+  fi
   info "Starte vorgemerkte Reboots erst nach Abschluss aller Systeme"
 
-  while IFS='|' read -r reboot_name reboot_ip reboot_jp; do
-    [[ -n ${reboot_name:-} && -n ${reboot_ip:-} ]] || continue
+  for current in "${planned_order[@]}"; do
+    reboot_name=${requested_name[$current]}
+    reboot_ip=${requested_ip[$current]}
+    reboot_jp=${requested_jp[$current]}
     Name=$reboot_name
     IP=$reboot_ip
     JP=$reboot_jp
@@ -343,7 +505,7 @@ schedule_queued_reboots() {
       warn "Reboot für ${Name} konnte nicht vorgemerkt werden"
       append_status "$Name" "$IP" "$FLAG" "REBOOT_FAILED" "Neustart konnte nicht geplant werden"
     fi
-  done < "$queue_file"
+  done
 }
 
 [[ $# -ge 2 ]] || {
