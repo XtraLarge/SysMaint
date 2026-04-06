@@ -44,11 +44,11 @@ If those files do not exist, SysMaint falls back to the example files inside the
 
 ```bash
 chmod +x manage.sh run-*.sh tasks/*.sh
-./run-update.sh
-./run-keys.sh
-./run-rsyslog.sh
-./run-shell.sh
-./run-autofs.sh
+./run-update.sh full
+./run-keys.sh full
+./run-rsyslog.sh full
+./run-shell.sh full
+./run-autofs.sh full
 ./run-status.sh
 ```
 
@@ -60,6 +60,7 @@ To run against one exact host entry from `.Systems.sh`:
 ```
 
 `--only` matches only the exact IP or DNS field from `.Systems.sh`.
+Running against all matching systems now requires the explicit argument `full`.
 
 ## Configuration model
 

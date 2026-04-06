@@ -62,11 +62,11 @@ chmod 600 /etc/sysmaint/repository/.bash_local /etc/sysmaint/repository/.vimrc
 ## 5. Run tasks with external configuration
 
 ```bash
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh TARGET_HOST=syslog.example.net ./run-rsyslog.sh
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-shell.sh
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-autofs.sh
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh full
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh full
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh TARGET_HOST=syslog.example.net ./run-rsyslog.sh full
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-shell.sh full
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-autofs.sh full
 ```
 
 ## 6. Restrict host scope when needed
