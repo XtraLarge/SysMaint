@@ -60,7 +60,7 @@ To run against one exact host entry from `.Systems.sh`:
 ./run-keys.sh only 192.0.2.20 192.0.2.21
 ```
 
-`only` matches only the exact IP or DNS field from `.Systems.sh` and accepts multiple blank-separated values.
+`only` matches the exact IP or DNS field from `.Systems.sh`, accepts multiple blank-separated values, and treats hostnames case-insensitively.
 Running against all matching systems now requires the explicit argument `full`.
 
 ## Configuration model

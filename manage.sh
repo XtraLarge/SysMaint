@@ -57,8 +57,9 @@ trim() {
 }
 
 host_matches_filter() {
-  local ip selector
+  local ip selector normalized_ip normalized_selector
   ip=$(trim "${IP:-}")
+  normalized_ip=${ip,,}
 
   if (( ${#FILTER_ONLYS[@]} == 0 )); then
     return 0
@@ -66,7 +67,8 @@ host_matches_filter() {
 
   for selector in "${FILTER_ONLYS[@]}"; do
     selector=$(trim "$selector")
-    [[ $ip == "$selector" ]] && return 0
+    normalized_selector=${selector,,}
+    [[ $normalized_ip == "$normalized_selector" ]] && return 0
   done
 
   return 1
