@@ -46,6 +46,7 @@ If those files do not exist, SysMaint falls back to the example files inside the
 ```bash
 chmod +x manage.sh run-*.sh tasks/*.sh
 ./run-update.sh full
+./run-update.sh full --jobs 6
 ./run-keys.sh full
 ./run-rsyslog.sh full
 ./run-shell.sh full
@@ -64,6 +65,7 @@ To run against one exact host entry from `.Systems.sh`:
 
 `only` accepts multiple blank-separated values, matches case-insensitively against the inventory `IP`, DNS, and `Name` fields, and also resolves short hostnames against the local DNS suffix of the management host. For example, `only ghost` can match both `GHost` and `ghost.home.arpa`.
 Running against all matching systems now requires the explicit argument `full`.
+`--jobs N` enables bounded parallel host execution. The default remains `1`.
 
 For SSH keys, `--reset` removes all non-SysMaint entries from `authorized_keys` on the selected targets and rebuilds the file from the managed key set only.
 

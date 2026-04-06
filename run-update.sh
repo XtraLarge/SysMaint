@@ -5,8 +5,8 @@ BASE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat <<'EOF_USAGE'
 Verwendung:
-  ./run-update.sh full
-  ./run-update.sh only IP-ODER-DNS [WEITERE...]
+  ./run-update.sh full [--jobs N]
+  ./run-update.sh only IP-ODER-DNS [WEITERE...] [--jobs N]
   ./run-update.sh --help
 EOF_USAGE
 }

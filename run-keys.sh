@@ -5,8 +5,8 @@ BASE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat <<'EOF_USAGE'
 Verwendung:
-  ./run-keys.sh full [--reset]
-  ./run-keys.sh only IP-ODER-DNS [WEITERE...] [--reset]
+  ./run-keys.sh full [--jobs N] [--reset]
+  ./run-keys.sh only IP-ODER-DNS [WEITERE...] [--jobs N] [--reset]
   ./run-keys.sh --help
 EOF_USAGE
 }
@@ -31,10 +31,17 @@ case "$mode" in
 esac
 
 reset_args=()
+jobs_args=()
 host_args=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --jobs)
+      shift
+      [[ $# -gt 0 ]] || { usage >&2; exit 1; }
+      jobs_args=(--jobs "$1")
+      shift
+      ;;
     --reset)
       reset_args=(-- --reset)
       shift
@@ -56,5 +63,6 @@ elif (( ${#host_args[@]} > 0 )); then
   exit 1
 fi
 
+cmd+=("${jobs_args[@]}")
 cmd+=("${reset_args[@]}")
 exec "${cmd[@]}"

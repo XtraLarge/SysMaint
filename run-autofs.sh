@@ -5,8 +5,8 @@ BASE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat <<'EOF_USAGE'
 Verwendung:
-  ./run-autofs.sh full
-  ./run-autofs.sh only IP-ODER-DNS [WEITERE...]
+  ./run-autofs.sh full [--jobs N]
+  ./run-autofs.sh only IP-ODER-DNS [WEITERE...] [--jobs N]
   ./run-autofs.sh --help
 EOF_USAGE
 }

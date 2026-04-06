@@ -65,6 +65,7 @@ If you still use the older flat layout with `old_user.pub` and `new_user.pub`, S
 
 ```bash
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh full
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh full --jobs 6
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh full
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh TARGET_HOST=syslog.example.net ./run-rsyslog.sh full
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-shell.sh full
@@ -78,6 +79,7 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-a
 ```bash
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only app-01.example.net
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only ghost
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only ghost --jobs 4
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-keys.sh only 192.0.2.20 192.0.2.21
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh only 192.0.2.20 --reset
 ```

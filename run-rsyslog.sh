@@ -5,8 +5,8 @@ BASE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage() {
   cat <<'EOF_USAGE'
 Verwendung:
-  ./run-rsyslog.sh full
-  ./run-rsyslog.sh only IP-ODER-DNS [WEITERE...]
+  ./run-rsyslog.sh full [--jobs N]
+  ./run-rsyslog.sh only IP-ODER-DNS [WEITERE...] [--jobs N]
   ./run-rsyslog.sh --help
 EOF_USAGE
 }
