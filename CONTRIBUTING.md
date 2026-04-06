@@ -108,3 +108,4 @@ It also refreshes transparent runtime links when `/etc/sysmaint` is present:
 
 - `.Systems.override.sh`
 - `keys.override`
+- `repository.override`

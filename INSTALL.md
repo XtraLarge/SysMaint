@@ -25,6 +25,7 @@ chmod +x manage.sh run-*.sh tasks/*.sh
 ```bash
 install -d -m 700 /etc/sysmaint
 install -d -m 700 /etc/sysmaint/keys
+install -d -m 700 /etc/sysmaint/repository
 ```
 
 ## 3. Provide your real inventory
@@ -47,10 +48,15 @@ Store your productive public keys outside the repository:
 cp keys/old_user.pub /etc/sysmaint/keys/old_user.pub
 cp keys/new_user.pub /etc/sysmaint/keys/new_user.pub
 cp keys/backup.pub /etc/sysmaint/keys/backup.pub
+cp repository/.bash_local /etc/sysmaint/repository/.bash_local
+cp repository/.vimrc /etc/sysmaint/repository/.vimrc
 vi /etc/sysmaint/keys/old_user.pub
 vi /etc/sysmaint/keys/new_user.pub
 vi /etc/sysmaint/keys/backup.pub
+vi /etc/sysmaint/repository/.bash_local
+vi /etc/sysmaint/repository/.vimrc
 chmod 600 /etc/sysmaint/keys/*.pub
+chmod 600 /etc/sysmaint/repository/.bash_local /etc/sysmaint/repository/.vimrc
 ```
 
 ## 5. Run tasks with external configuration

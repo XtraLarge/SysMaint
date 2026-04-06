@@ -26,6 +26,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - `run-*.sh`: convenience wrappers around `manage.sh`
 - `scripts/`: helper scripts for checks, PR workflow, and releases
 - `repository/`: example shell and editor dotfiles
+  `.bash_local` is the generic shell baseline file
 - `keys/`: example public key files for the key rollout
 - `logs/`: runtime output directory, kept out of versioned logs by `.gitignore`
 
@@ -35,6 +36,7 @@ The published repository prefers external runtime files:
 
 - inventory: `/etc/sysmaint/.Systems.sh`
 - key directory: `/etc/sysmaint/keys`
+- shell repository overrides: `/etc/sysmaint/repository`
 
 If those files do not exist, SysMaint falls back to the example files inside the repository. This keeps the Git repository publishable while making productive use safer by default.
 
@@ -106,6 +108,7 @@ When external runtime files exist, the local clone can also expose them transpar
 
 - `.Systems.override.sh` -> `/etc/sysmaint/.Systems.sh`
 - `keys.override` -> `/etc/sysmaint/keys`
+- `repository.override` -> `/etc/sysmaint/repository`
 
 ## Sensitive data strategy
 

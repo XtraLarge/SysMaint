@@ -5,11 +5,20 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=../lib/common.sh
 source "$SCRIPT_DIR/../lib/common.sh"
 
+DEFAULT_SHELL_REPOSITORY_DIR=$SCRIPT_DIR/../repository
+if [[ -d /etc/sysmaint/repository ]]; then
+  DEFAULT_SHELL_REPOSITORY_DIR=/etc/sysmaint/repository
+fi
+
+SHELL_REPOSITORY_DIR=${SHELL_REPOSITORY_DIR:-$DEFAULT_SHELL_REPOSITORY_DIR}
+SHELL_BASH_LOCAL_FILE=${SHELL_BASH_LOCAL_FILE:-$SHELL_REPOSITORY_DIR/.bash_local}
+SHELL_VIMRC_FILE=${SHELL_VIMRC_FILE:-$SHELL_REPOSITORY_DIR/.vimrc}
+
 run_task() {
   info "Installiere Shell-Konfiguration auf ${Name}"
 
   local remote_script
-  remote_script="$(cat <<'EOF_REMOTE'
+  remote_script="$(cat <<EOF_REMOTE
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -41,40 +50,20 @@ if command -v debconf-set-selections >/dev/null 2>&1 && command -v dpkg-reconfig
   dpkg-reconfigure -f noninteractive locales
 fi
 
-# Bash-Aliase / Grundkonfiguration
-if [[ ! -f /root/.bash_aliases ]]; then
-  touch /root/.bash_aliases
-fi
+cat > /root/.bash_local <<'EOF_BASH_LOCAL'
+$(cat "$SHELL_BASH_LOCAL_FILE")
+EOF_BASH_LOCAL
 
-append_alias() {
-  local line="$1"
-  local file="/root/.bash_aliases"
-  grep -Fqx "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
-}
-
-append_alias "alias ll='ls -alF'"
-append_alias "alias la='ls -A'"
-append_alias "alias l='ls -CF'"
-append_alias "alias cls='clear'"
-append_alias "alias ..='cd ..'"
-append_alias "alias ...='cd ../..'"
-
-if [[ ! -f /root/.vimrc ]]; then
-  cat > /root/.vimrc <<'EOF_VIM'
-set nocompatible
-set backspace=indent,eol,start
-syntax on
-set number
-set mouse=
+cat > /root/.vimrc <<'EOF_VIM'
+$(cat "$SHELL_VIMRC_FILE")
 EOF_VIM
-fi
 
 if [[ ! -f /root/.bashrc ]]; then
   touch /root/.bashrc
 fi
 
-grep -Fqx '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' /root/.bashrc 2>/dev/null || \
-  printf '%s\n' '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' >> /root/.bashrc
+grep -Fqx '[[ -f /root/.bash_local ]] && . /root/.bash_local' /root/.bashrc 2>/dev/null || \
+  printf '%s\n' '[[ -f /root/.bash_local ]] && . /root/.bash_local' >> /root/.bashrc
 
 exit 0
 EOF_REMOTE
@@ -84,4 +73,3 @@ EOF_REMOTE
 }
 
 run_task
-
