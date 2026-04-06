@@ -46,20 +46,20 @@ desired_keys=$(printf '%s\n' "$desired_keys" | awk 'NF && !seen[$0]++')
 managed_keys=$(printf '%s\n' "$desired_keys" | awk 'NF { if (count++) print ""; print }')
 
 remote_script=$(cat <<EOF_REMOTE
-set -euo pipefail
+set -eu
 AUTH_DIR="/root/.ssh"
 AUTH_FILE="${AUTH_DIR}/authorized_keys"
 BACKUP_FILE="${AUTH_FILE}.bak"
 MANAGED_BEGIN="# BEGIN SYSMAINT MANAGED KEYS"
 MANAGED_END="# END SYSMAINT MANAGED KEYS"
-TMP_MANAGED="$(mktemp)"
-TMP_FILE="$(mktemp)"
+TMP_MANAGED="\$(mktemp)"
+TMP_FILE="\$(mktemp)"
 RESET_KEYS="${RESET_KEYS}"
 
 mkdir -p "$AUTH_DIR"
 chmod 700 "$AUTH_DIR"
 
-if [[ -f "$AUTH_FILE" ]]; then
+if [ -f "$AUTH_FILE" ]; then
   cp -f "$AUTH_FILE" "$BACKUP_FILE"
 fi
 
@@ -67,9 +67,9 @@ cat > "$TMP_MANAGED" <<'EOF_MANAGED_KEYS'
 ${managed_keys}
 EOF_MANAGED_KEYS
 
-if [[ "$RESET_KEYS" == "1" ]]; then
+if [ "$RESET_KEYS" = "1" ]; then
   : > "$TMP_FILE"
-elif [[ -f "$AUTH_FILE" ]]; then
+elif [ -f "$AUTH_FILE" ]; then
   awk -v begin="$MANAGED_BEGIN" -v end="$MANAGED_END" "
     \$0 == begin { skip = 1; next }
     \$0 == end { skip = 0; next }
@@ -79,7 +79,7 @@ else
   : > "$TMP_FILE"
 fi
 
-if [[ -s "$TMP_FILE" ]]; then
+if [ -s "$TMP_FILE" ]; then
   printf "\n" >> "$TMP_FILE"
 fi
 
@@ -98,4 +98,4 @@ if (( RESET_KEYS == 1 )); then
 else
   info "Aktualisiere authorized_keys auf ${Name}"
 fi
-run_ssh_bash "$remote_script"
+run_ssh_sh "$remote_script"
