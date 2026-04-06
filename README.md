@@ -51,6 +51,7 @@ chmod +x manage.sh run-*.sh tasks/*.sh
 ./run-rsyslog.sh full
 ./run-shell.sh full
 ./run-autofs.sh full
+./run-autofs.sh full --reset
 ./run-status.sh
 ```
 

@@ -70,6 +70,7 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh 
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh TARGET_HOST=syslog.example.net ./run-rsyslog.sh full
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-shell.sh full
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-autofs.sh full
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-autofs.sh full --reset
 ```
 
 ## 6. Restrict host scope when needed

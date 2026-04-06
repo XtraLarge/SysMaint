@@ -9,6 +9,20 @@ AUTOFS_MAPS_DIR=${AUTOFS_MAPS_DIR:-$AUTOFS_BASEDIR/maps}
 AUTOFS_FILESYSTEMS=${AUTOFS_FILESYSTEMS:-loop sshfs cifs nfs}
 AUTOFS_RELOAD_MARKER=${AUTOFS_RELOAD_MARKER:-}
 AUTOFS_CHANGED=0
+AUTOFS_RESET=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reset)
+      AUTOFS_RESET=1
+      shift
+      ;;
+    *)
+      err "Unbekannte Option für autofs_task.sh: $1"
+      exit 1
+      ;;
+  esac
+done
 autofs_packages_for_current_os() {
   local var_name="AUTOFS_PACKAGES_${BS:-}"
   local packages
@@ -75,6 +89,28 @@ ensure_local_packages() {
 ensure_dir() {
   local dir=$1
   [[ -d $dir ]] || mkdir -p "$dir"
+}
+
+reset_host_autofs_files() {
+  local master_map=$1
+  local filesystem mapfile
+
+  [[ $AUTOFS_RESET == "1" ]] || return 0
+
+  if [[ -f $master_map ]]; then
+    info "Lösche AutoFS-Masterdatei im Reset-Modus: $master_map"
+    rm -f "$master_map"
+    AUTOFS_CHANGED=1
+  fi
+
+  for filesystem in $AUTOFS_FILESYSTEMS; do
+    mapfile="${AUTOFS_MAPS_DIR}/${filesystem}/${Name}.map"
+    if [[ -f $mapfile ]]; then
+      info "Lösche AutoFS-Map im Reset-Modus: $mapfile"
+      rm -f "$mapfile"
+      AUTOFS_CHANGED=1
+    fi
+  done
 }
 
 create_master_map_if_missing() {
@@ -175,6 +211,7 @@ ensure_dir "$AUTOFS_BASEDIR"
 ensure_dir "$AUTOFS_MAPS_DIR"
 
 master_map="${AUTOFS_BASEDIR}/${Name}.autofs"
+reset_host_autofs_files "$master_map"
 create_master_map_if_missing "$master_map"
 
 for filesystem in $AUTOFS_FILESYSTEMS; do
