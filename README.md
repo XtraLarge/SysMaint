@@ -58,10 +58,13 @@ To run against one exact host entry from `.Systems.sh`:
 ./run-update.sh only app-01.example.net
 ./run-shell.sh only 192.0.2.10
 ./run-keys.sh only 192.0.2.20 192.0.2.21
+./run-keys.sh only 192.0.2.20 --reset
 ```
 
 `only` matches the exact IP or DNS field from `.Systems.sh`, accepts multiple blank-separated values, and treats hostnames case-insensitively.
 Running against all matching systems now requires the explicit argument `full`.
+
+For SSH keys, `--reset` removes all non-SysMaint entries from `authorized_keys` on the selected targets and rebuilds the file from the managed key set only.
 
 ## Configuration model
 
@@ -143,4 +146,5 @@ For real environments, prefer one of these approaches:
 - The SSH key task maintains exactly one backup file: `/root/.ssh/authorized_keys.bak`.
 - The SSH key task replaces only the marked SysMaint block in `authorized_keys`.
 - The backup key exists only on systems with `BK=1` inside the managed block.
+- Managed keys are written with a blank line between entries for readability.
 - The AutoFS task works locally on the management host.

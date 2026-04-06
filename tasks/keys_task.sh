@@ -13,6 +13,20 @@ KEY_DIR=${KEY_DIR:-$DEFAULT_KEY_DIR}
 NEW_KEY_FILE=${NEW_KEY_FILE:-$KEY_DIR/new_user.pub}
 OLD_KEY_FILE=${OLD_KEY_FILE:-$KEY_DIR/old_user.pub}
 BACKUP_KEY_FILE=${BACKUP_KEY_FILE:-$KEY_DIR/backup.pub}
+RESET_KEYS=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reset)
+      RESET_KEYS=1
+      shift
+      ;;
+    *)
+      err "Unbekannte Option für keys_task.sh: $1"
+      exit 1
+      ;;
+  esac
+done
 
 require_file "$NEW_KEY_FILE"
 require_file "$OLD_KEY_FILE"
@@ -29,6 +43,7 @@ if [[ ${BK:-0} == "1" ]]; then
 fi
 
 desired_keys=$(printf '%s\n' "$desired_keys" | awk 'NF && !seen[$0]++')
+managed_keys=$(printf '%s\n' "$desired_keys" | awk 'NF { if (count++) print ""; print }')
 
 remote_script='set -euo pipefail
 AUTH_DIR="/root/.ssh"
@@ -38,6 +53,7 @@ MANAGED_BEGIN="# BEGIN SYSMAINT MANAGED KEYS"
 MANAGED_END="# END SYSMAINT MANAGED KEYS"
 TMP_MANAGED="$(mktemp)"
 TMP_FILE="$(mktemp)"
+RESET_KEYS="${1:-0}"
 
 mkdir -p "$AUTH_DIR"
 chmod 700 "$AUTH_DIR"
@@ -48,7 +64,9 @@ fi
 
 cat > "$TMP_MANAGED"
 
-if [[ -f "$AUTH_FILE" ]]; then
+if [[ "$RESET_KEYS" == "1" ]]; then
+  : > "$TMP_FILE"
+elif [[ -f "$AUTH_FILE" ]]; then
   awk -v begin="$MANAGED_BEGIN" -v end="$MANAGED_END" "
     \$0 == begin { skip = 1; next }
     \$0 == end { skip = 0; next }
@@ -71,5 +89,9 @@ install -m 600 "$TMP_FILE" "$AUTH_FILE"
 rm -f "$TMP_FILE" "$TMP_MANAGED"
 '
 
-info "Aktualisiere authorized_keys auf ${Name}"
-printf '%s\n' "$desired_keys" | run_ssh_with_stdin "$remote_script"
+if (( RESET_KEYS == 1 )); then
+  info "Aktualisiere authorized_keys auf ${Name} im Reset-Modus"
+else
+  info "Aktualisiere authorized_keys auf ${Name}"
+fi
+printf '%s\n' "$managed_keys" | run_ssh_with_stdin "$remote_script" "$RESET_KEYS"
