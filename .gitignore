@@ -1,0 +1,4 @@
+logs/last_run.log
+logs/last_run.status
+keys/*.real.pub
+.DS_Store

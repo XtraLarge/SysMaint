@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Example system inventory for SysMaint.
+# Replace the sample hosts with your own environment before productive use.
+#
+# Format:
+# - Header lines start with ! and define the field names.
+# - Records use # as a field separator.
+# - Comment lines start with #.
+#
+# Standard fields:
+# Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP
+
+IFS=$'\n'
+mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
+!Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP
+# Typ  P=Physical, V=Virtual, N=Network
+# ID   Freely chosen inventory ID
+# Name Display name
+# IP   Target address or DNS name
+# BS   D=Debian, U=Univention, S=SUSE, X=Other
+# UP   Update       1=true, 0=false
+# FR   Force-Reboot 1=true, 0=false
+# BK   Backup key   1=true, 0=false
+# KY   SSH keys     1=true, 0=false
+# RS   RSyslog      1=true, 0=false
+# SH   Shell kit    1=true, 0=false
+# AF   AutoFS       1=true, 0=false
+# JP   Jump host    host or IP, empty = direct connection
+#
+# Example environment
+###############
+#Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP
+V    #101 #mgmt-node         #192.0.2.10            #D  #1  #1  #1  #1  #1  #1  #1  #
+V    #102 #docker-node-a     #192.0.2.20            #D  #1  #1  #1  #1  #1  #1  #1  #
+V    #103 #docker-node-b     #192.0.2.21            #D  #1  #1  #1  #1  #1  #1  #1  #
+P    #201 #fileserver        #198.51.100.10         #D  #1  #1  #1  #1  #1  #1  #1  #
+V    #301 #branch-app        #app-01.example.net    #U  #1  #1  #0  #1  #1  #1  #0  #jump-gateway.example.net
+N    #401 #edge-router       #router-01.example.net #X  #0  #0  #0  #0  #0  #0  #1  #
+SYSTEMS_EOF
+
+: "${DEBUG:=}"
+declare -ag HEAD=()
+
+systems_trim() {
+  local value=${1-}
+  value=${value//$'\r'/}
+  value=${value##+([[:space:]])}
+  value=${value%%+([[:space:]])}
+  printf '%s' "$value"
+}
+
+header() {
+  local raw=${LINE-}
+  raw=${raw#!}
+  IFS='!' read -r -a HEAD <<< "$raw"
+  local i
+  for i in "${!HEAD[@]}"; do
+    HEAD[$i]="$(printf '%s' "${HEAD[$i]}" | tr -d '[:space:]')"
+  done
+}
+
+element() {
+  local i value
+  local -a ELEM=()
+
+  unset Typ ID Name IP BS UP FR BK KY RS SH AF JP
+  IFS='#' read -r -a ELEM <<< "$LINE"
+
+  for i in "${!HEAD[@]}"; do
+    value="${ELEM[$i]-}"
+    value="$(printf '%s' "$value" | tr -d '[:space:]')"
+
+    if [[ ${HEAD[$i]-} == "IP" && -z $value ]]; then
+      value="${Name-}"
+    fi
+
+    printf -v "${HEAD[$i]}" '%s' "$value"
+  done
+
+  : "${JP:=}"
+}
+
+systems_init() {
+  local line
+  for line in "${HOSTNAMES[@]}"; do
+    if [[ $line == \!* ]]; then
+      LINE=$line
+      header
+      return 0
+    fi
+  done
+  return 1
+}
+
+systems_init || {
+  echo "No valid header line found in .Systems.sh." >&2
+  return 1 2>/dev/null || exit 1
+}
