@@ -35,6 +35,9 @@ ensure_local_packages() {
   packages=$(autofs_packages_for_current_os)
   [[ -n $packages ]] || return 0
 
+  exec 9>/tmp/sysmaint-autofs-packages.lock
+  flock 9
+
   if command -v apt-get >/dev/null 2>&1 && command -v dpkg-query >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     for pkg in $packages; do
@@ -46,6 +49,7 @@ ensure_local_packages() {
       apt-get update
       apt-get -y install "${missing[@]}"
     fi
+    flock -u 9
     return 0
   fi
 
@@ -58,9 +62,11 @@ ensure_local_packages() {
       info "Installiere fehlende AutoFS-Pakete: ${missing[*]}"
       zypper --non-interactive install "${missing[@]}"
     fi
+    flock -u 9
     return 0
   fi
 
+  flock -u 9
   warn "Kein unterstützter Paketmanager für AutoFS-Paketprüfung gefunden"
 }
 

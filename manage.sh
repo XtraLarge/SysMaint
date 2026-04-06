@@ -638,6 +638,11 @@ case "$FLAG" in
     ;;
 esac
 
+if [[ $FLAG == "AF" && $JOBS != "1" ]]; then
+  warn "AutoFS arbeitet lokal auf dem Manage-Host. Parallele Jobs werden dafür auf 1 gesetzt."
+  JOBS=1
+fi
+
 init_status_file
 info "Logdatei dieser Ausführung: $LOG_FILE"
 info "Statusdatei dieser Ausführung: $STATUS_FILE"
