@@ -43,7 +43,6 @@ export_optional_config() {
 }
 
 export_optional_config
-LOCAL_DNS_SUFFIX=$(detect_local_dns_suffix)
 
 usage() {
   cat <<USAGE
@@ -115,6 +114,8 @@ canonical_host_key() {
 
   printf '%s' "$value"
 }
+
+LOCAL_DNS_SUFFIX=$(detect_local_dns_suffix)
 
 host_matches_filter() {
   local ip name selector suffix normalized_ip normalized_name normalized_selector candidate
