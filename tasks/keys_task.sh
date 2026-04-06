@@ -4,7 +4,12 @@ set -euo pipefail
 BASE_DIR=${BASE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
 source "$BASE_DIR/lib/common.sh"
 
-KEY_DIR=${KEY_DIR:-$BASE_DIR/keys}
+DEFAULT_KEY_DIR=$BASE_DIR/keys
+if [[ -d /etc/sysmaint/keys ]]; then
+  DEFAULT_KEY_DIR=/etc/sysmaint/keys
+fi
+
+KEY_DIR=${KEY_DIR:-$DEFAULT_KEY_DIR}
 NEW_KEY_FILE=${NEW_KEY_FILE:-$KEY_DIR/new_user.pub}
 OLD_KEY_FILE=${OLD_KEY_FILE:-$KEY_DIR/old_user.pub}
 BACKUP_KEY_FILE=${BACKUP_KEY_FILE:-$KEY_DIR/backup.pub}

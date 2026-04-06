@@ -2,7 +2,7 @@
 
 SysMaint is a shell-based maintenance toolkit for administering multiple Linux systems from one management host. This repository is intentionally publishable: it contains only example inventory data, example public keys, and generic configuration snippets.
 
-For productive use, keep real host inventories, SSH public keys, jump hosts, syslog destinations, and similar internal data outside the repository or replace the sample files locally before first use.
+For productive use, keep real host inventories, SSH public keys, jump hosts, syslog destinations, and similar internal data outside the repository. The published code now prefers external runtime files under `/etc/sysmaint` and falls back to the in-repo examples only when no external files are present.
 
 ## What it does
 
@@ -27,6 +27,15 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - `repository/`: example shell and editor dotfiles
 - `keys/`: example public key files for the key rollout
 - `logs/`: runtime output directory, kept out of versioned logs by `.gitignore`
+
+## Runtime defaults
+
+The published repository prefers external runtime files:
+
+- inventory: `/etc/sysmaint/.Systems.sh`
+- key directory: `/etc/sysmaint/keys`
+
+If those files do not exist, SysMaint falls back to the example files inside the repository. This keeps the Git repository publishable while making productive use safer by default.
 
 ## Quick start
 
@@ -62,6 +71,23 @@ Each inventory entry carries flags that decide which task is active for that tar
 - `AF`: generate AutoFS files for the host
 - `JP`: jump host for SSH and SCP access
 
+## Change control
+
+The repository is intended to be operated with GitHub branch protection on `main`:
+
+- no direct unreviewed changes to `main`
+- changes go through commits and pull requests
+- branch history stays versioned and revertible
+
+Operationally, that means:
+
+1. Work in a branch.
+2. Commit the change.
+3. Open a pull request.
+4. Review and merge.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the exact workflow.
+
 ## Sensitive data strategy
 
 This repository is designed to stay free of infrastructure secrets and internal naming:
@@ -83,6 +109,7 @@ For real environments, prefer one of these approaches:
 
 - Installation: [INSTALL.md](INSTALL.md)
 - Operations and task behavior: [OPERATIONS.md](OPERATIONS.md)
+- Change and release workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Notes
 

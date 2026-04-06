@@ -7,7 +7,12 @@ set -euo pipefail
 BASE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd "$BASE_DIR"
 
-: "${SYSTEMS_FILE:=./.Systems.sh}"
+DEFAULT_SYSTEMS_FILE=$BASE_DIR/.Systems.sh
+if [[ -r /etc/sysmaint/.Systems.sh ]]; then
+  DEFAULT_SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
+fi
+
+: "${SYSTEMS_FILE:=$DEFAULT_SYSTEMS_FILE}"
 : "${LOG_DIR:=$BASE_DIR/logs}"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/last_run.log"
@@ -36,7 +41,7 @@ Host-Filter:
   --only WERT   exakter Treffer auf IP oder DNS-Name aus .Systems.sh
 
 Optionen per Environment:
-  SYSTEMS_FILE=./.Systems.sh
+  SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
   SSH_USER=root
   DEBUG=true
   LOG_DIR=./logs
@@ -226,7 +231,7 @@ if [[ $FLAG == "UP" ]]; then
 fi
 
 if (( matched == 0 )); then
-  if [[ -n $FILTER_ONLY$FILTER_NAME$FILTER_IP$FILTER_ID ]]; then
+  if [[ -n $FILTER_ONLY ]]; then
     warn "Kein System hat auf den angegebenen Filter gepasst"
     append_status "-" "-" "$FLAG" "INFO" "Kein System für gesetzten Host-Filter gefunden"
   else
