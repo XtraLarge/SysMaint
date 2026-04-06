@@ -259,6 +259,13 @@ finish_parallel_job() {
   wait "$pid" || true
   result=$(<"$job_result")
 
+  if [[ -s $job_log ]]; then
+    print_host_banner "$job_name ($job_ip) - Ausgabe"
+    while IFS= read -r line || [[ -n $line ]]; do
+      printf '[%s] %s\n' "$job_name" "$line"
+    done < "$job_log"
+  fi
+
   if [[ $result == OK* ]]; then
     printf '%b%s%b\n' "$TEXT_GREEN" "$job_name erfolgreich verarbeitet" "$TEXT_RESET"
     append_status "$job_name" "$job_ip" "$FLAG" "OK" "Task erfolgreich"
@@ -276,7 +283,7 @@ finish_parallel_job() {
   fi
 
   unset "JOB_PIDS[$index]" "JOB_NAMES[$index]" "JOB_IPS[$index]" "JOB_LOGS[$index]" "JOB_REBOOTS[$index]" "JOB_RESULTS[$index]"
-  ((running_jobs-=1))
+  running_jobs=$((running_jobs - 1))
 }
 
 wait_for_parallel_slot() {
@@ -430,8 +437,11 @@ declare -a JOB_IPS=()
 declare -a JOB_LOGS=()
 declare -a JOB_REBOOTS=()
 declare -a JOB_RESULTS=()
-JOB_RUN_DIR=$(mktemp -d "$LOG_DIR/jobs.XXXXXX")
-trap 'rm -f "$REBOOT_QUEUE_FILE"; rm -rf "$JOB_RUN_DIR"' EXIT
+JOB_RUN_DIR="$LOG_DIR/last_jobs"
+rm -rf "$JOB_RUN_DIR"
+mkdir -p "$JOB_RUN_DIR"
+trap 'rm -f "$REBOOT_QUEUE_FILE"' EXIT
+info "Job-Logs dieser Ausführung: $JOB_RUN_DIR"
 
 for LINE in "${HOSTNAMES[@]}"; do
   if [[ $LINE == \#* ]]; then
