@@ -329,7 +329,7 @@ schedule_queued_reboots() {
     export Name IP JP
 
     info "Plane Reboot für ${Name} in 5 Minuten"
-    if run_ssh "shutdown -r +5 'Automatischer Neustart nach Wartung'"; then
+    if run_ssh "shutdown -r +5 'Automatischer Neustart nach Wartung'" </dev/null; then
       info "Reboot für ${Name} erfolgreich vorgemerkt"
       append_status "$Name" "$IP" "$FLAG" "REBOOT_QUEUED" "Neustart in 5 Minuten geplant"
     else
