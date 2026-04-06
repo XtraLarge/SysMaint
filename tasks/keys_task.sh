@@ -45,7 +45,7 @@ fi
 desired_keys=$(printf '%s\n' "$desired_keys" | awk 'NF && !seen[$0]++')
 managed_keys=$(printf '%s\n' "$desired_keys" | awk 'NF { if (count++) print ""; print }')
 
-remote_script=$(cat <<EOF_REMOTE
+remote_script_template=$(cat <<'EOF_REMOTE'
 set -eu
 AUTH_DIR="/root/.ssh"
 AUTH_FILE="${AUTH_DIR}/authorized_keys"
@@ -54,7 +54,7 @@ MANAGED_BEGIN="# BEGIN SYSMAINT MANAGED KEYS"
 MANAGED_END="# END SYSMAINT MANAGED KEYS"
 TMP_MANAGED="\$(mktemp)"
 TMP_FILE="\$(mktemp)"
-RESET_KEYS="${RESET_KEYS}"
+RESET_KEYS="__RESET_KEYS__"
 
 mkdir -p "$AUTH_DIR"
 chmod 700 "$AUTH_DIR"
@@ -64,7 +64,7 @@ if [ -f "$AUTH_FILE" ]; then
 fi
 
 cat > "$TMP_MANAGED" <<'EOF_MANAGED_KEYS'
-${managed_keys}
+__MANAGED_KEYS__
 EOF_MANAGED_KEYS
 
 if [ "$RESET_KEYS" = "1" ]; then
@@ -92,6 +92,9 @@ install -m 600 "$TMP_FILE" "$AUTH_FILE"
 rm -f "$TMP_FILE" "$TMP_MANAGED"
 EOF_REMOTE
 )
+
+remote_script=${remote_script_template//__RESET_KEYS__/$RESET_KEYS}
+remote_script=${remote_script//__MANAGED_KEYS__/$managed_keys}
 
 if (( RESET_KEYS == 1 )); then
   info "Aktualisiere authorized_keys auf ${Name} im Reset-Modus"
