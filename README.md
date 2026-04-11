@@ -26,7 +26,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - `run-*.sh`: convenience wrappers around `manage.sh`
 - `scripts/`: helper scripts for checks, PR workflow, and releases
 - `repository/`: example shell and editor dotfiles
-  `.bash_local` is the generic shell baseline file
+  `.bash_aliases` is the generic shell baseline file
 - `keys/`: example public key files for the key rollout
   `keys/managed/` contains the normal managed keys, `keys/backup.pub` stays separate
 - `logs/`: runtime output directory, kept out of versioned logs by `.gitignore`
@@ -64,7 +64,7 @@ To run against one exact host entry from `.Systems.sh`:
 ./run-keys.sh only 192.0.2.20 --reset
 ```
 
-`only` accepts multiple blank-separated values, matches case-insensitively against the inventory `IP`, DNS, and `Name` fields, and also resolves short hostnames against the local DNS suffix of the management host. For example, `only ghost` can match both `GHost` and `ghost.home.arpa`.
+`only` accepts multiple blank-separated values and matches case-insensitively only against the exact `IP` field from `.Systems.sh`.
 Running against all matching systems now requires the explicit argument `full`.
 `--jobs N` enables bounded parallel host execution. The default comes from `DEFAULT_JOBS` in `.Systems.sh` and ships as `8`.
 
