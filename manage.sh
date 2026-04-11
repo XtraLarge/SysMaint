@@ -58,8 +58,7 @@ Beispiele:
   ./manage.sh SH ./tasks/shell_task.sh --only 192.0.2.10
 
 Host-Filter:
-  --only WERT   Treffer auf IP, DNS-Name oder Name aus .Systems.sh
-                kurzer Hostname wird zusätzlich gegen den lokalen DNS-Suffix geprüft
+  --only WERT   exakter Treffer auf das IP-/DNS-Feld aus .Systems.sh
                 mehrfach angebbar
   --jobs N      maximale Zahl gleichzeitiger Host-Jobs, Standard aus DEFAULT_JOBS oder 1
 
@@ -226,12 +225,9 @@ resolve_inventory_ref() {
 }
 
 host_matches_filter() {
-  local ip name selector suffix normalized_ip normalized_name normalized_selector candidate
+  local ip selector normalized_ip normalized_selector
   ip=$(trim "${IP:-}")
-  name=$(trim "${Name:-}")
-  suffix=${LOCAL_DNS_SUFFIX:-}
   normalized_ip=${ip,,}
-  normalized_name=${name,,}
 
   if (( ${#FILTER_ONLYS[@]} == 0 )); then
     return 0
@@ -243,18 +239,6 @@ host_matches_filter() {
     [[ -z $normalized_selector ]] && continue
 
     [[ $normalized_ip == "$normalized_selector" ]] && return 0
-    [[ $normalized_name == "$normalized_selector" ]] && return 0
-
-    candidate=$(canonical_host_key "$normalized_ip" "$suffix" || true)
-    [[ -n $candidate && $candidate == "$normalized_selector" ]] && return 0
-
-    candidate=$(canonical_host_key "$normalized_name" "$suffix" || true)
-    [[ -n $candidate && $candidate == "$normalized_selector" ]] && return 0
-
-    if [[ $normalized_selector != *.* && -n $suffix ]]; then
-      [[ $normalized_ip == "$normalized_selector.$suffix" ]] && return 0
-      [[ $normalized_name == "$normalized_selector.$suffix" ]] && return 0
-    fi
   done
 
   return 1
@@ -615,7 +599,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --only)
       shift
-      [[ $# -gt 0 ]] || { err "--only benötigt mindestens eine IP oder einen DNS-Namen"; exit 1; }
+      [[ $# -gt 0 ]] || { err "--only benötigt mindestens eine exakte IP oder einen exakten DNS-Namen aus .Systems.sh"; exit 1; }
       while [[ $# -gt 0 ]]; do
         case "$1" in
           --|--name|--ip|--id|--only|--jobs)
@@ -627,18 +611,24 @@ while [[ $# -gt 0 ]]; do
             ;;
         esac
       done
-      (( ${#FILTER_ONLYS[@]} > 0 )) || { err "--only benötigt mindestens eine IP oder einen DNS-Namen"; exit 1; }
+      (( ${#FILTER_ONLYS[@]} > 0 )) || { err "--only benötigt mindestens eine exakte IP oder einen exakten DNS-Namen aus .Systems.sh"; exit 1; }
+      ;;
+    only)
+      err "Ungültiger Aufruf: 'only' wird nicht unterstützt. Verwende --only <IP-oder-DNS-aus-.Systems.sh>."
+      exit 1
       ;;
     --)
       shift
       break
       ;;
     --name|--ip|--id)
-      err "Nur --only wird unterstützt. Bitte IP oder DNS-Name mit --only angeben."
+      err "Nur --only wird unterstützt. Bitte exakte IP oder exakten DNS-Namen aus .Systems.sh mit --only angeben."
       exit 1
       ;;
     *)
-      break
+      err "Unbekanntes Argument vor --: $1"
+      usage >&2
+      exit 1
       ;;
   esac
 done

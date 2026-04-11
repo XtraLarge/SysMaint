@@ -11,7 +11,10 @@ if [[ -d /etc/sysmaint/repository ]]; then
 fi
 
 SHELL_REPOSITORY_DIR=${SHELL_REPOSITORY_DIR:-$DEFAULT_SHELL_REPOSITORY_DIR}
-SHELL_BASH_LOCAL_FILE=${SHELL_BASH_LOCAL_FILE:-$SHELL_REPOSITORY_DIR/.bash_local}
+SHELL_BASH_ALIASES_FILE=${SHELL_BASH_ALIASES_FILE:-$SHELL_REPOSITORY_DIR/.bash_aliases}
+if [[ ! -f $SHELL_BASH_ALIASES_FILE ]]; then
+  SHELL_BASH_ALIASES_FILE=$SHELL_REPOSITORY_DIR/.bash_local
+fi
 SHELL_VIMRC_FILE=${SHELL_VIMRC_FILE:-$SHELL_REPOSITORY_DIR/.vimrc}
 shell_packages_for_current_os() {
   local var_name="SHELL_PACKAGES_${BS:-}"
@@ -19,7 +22,7 @@ shell_packages_for_current_os() {
 
   case "${BS:-}" in
     D|U)
-      packages="bash-completion vim less"
+      packages="bash-completion vim less figlet"
       ;;
     S)
       packages="vim less"
@@ -46,8 +49,8 @@ run_task() {
   remote_script="$(cat <<EOF_REMOTE
 set -euo pipefail
 
-BASH_LOCAL_BEGIN="# BEGIN SYSMAINT MANAGED BASH_LOCAL"
-BASH_LOCAL_END="# END SYSMAINT MANAGED BASH_LOCAL"
+BASH_ALIASES_BEGIN="# BEGIN SYSMAINT MANAGED BASH_ALIASES"
+BASH_ALIASES_END="# END SYSMAINT MANAGED BASH_ALIASES"
 VIMRC_BEGIN="\" BEGIN SYSMAINT MANAGED VIMRC"
 VIMRC_END="\" END SYSMAINT MANAGED VIMRC"
 
@@ -142,27 +145,28 @@ update_managed_file() {
   rm -f "\$base_file" "\$output_file"
 }
 
-TMP_BASH_LOCAL_CONTENT=\$(mktemp)
+TMP_BASH_ALIASES_CONTENT=\$(mktemp)
 TMP_VIMRC_CONTENT=\$(mktemp)
 
-cat > "\$TMP_BASH_LOCAL_CONTENT" <<'EOF_BASH_LOCAL'
-$(cat "$SHELL_BASH_LOCAL_FILE")
-EOF_BASH_LOCAL
+cat > "\$TMP_BASH_ALIASES_CONTENT" <<'EOF_BASH_ALIASES'
+$(cat "$SHELL_BASH_ALIASES_FILE")
+EOF_BASH_ALIASES
 
 cat > "\$TMP_VIMRC_CONTENT" <<'EOF_VIM'
 $(cat "$SHELL_VIMRC_FILE")
 EOF_VIM
 
-update_managed_file /root/.bash_local "\$BASH_LOCAL_BEGIN" "\$BASH_LOCAL_END" "\$TMP_BASH_LOCAL_CONTENT"
+update_managed_file /root/.bash_aliases "\$BASH_ALIASES_BEGIN" "\$BASH_ALIASES_END" "\$TMP_BASH_ALIASES_CONTENT"
 update_managed_file /root/.vimrc "\$VIMRC_BEGIN" "\$VIMRC_END" "\$TMP_VIMRC_CONTENT"
-rm -f "\$TMP_BASH_LOCAL_CONTENT" "\$TMP_VIMRC_CONTENT"
+rm -f "\$TMP_BASH_ALIASES_CONTENT" "\$TMP_VIMRC_CONTENT"
 
 if [[ ! -f /root/.bashrc ]]; then
   touch /root/.bashrc
 fi
 
-grep -Fqx '[[ -f /root/.bash_local ]] && . /root/.bash_local' /root/.bashrc 2>/dev/null || \
-  printf '%s\n' '[[ -f /root/.bash_local ]] && . /root/.bash_local' >> /root/.bashrc
+  sed -i '/\[\[ -f \/root\/\.bashxl \]\] && \. \/root\/\.bashxl/d' /root/.bashrc
+  grep -Fqx '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' /root/.bashrc 2>/dev/null || \
+  printf '%s\n' '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' >> /root/.bashrc
 
 exit 0
 EOF_REMOTE

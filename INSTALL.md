@@ -48,15 +48,15 @@ Store your productive public keys outside the repository:
 install -d -m 700 /etc/sysmaint/keys/managed
 cp keys/managed/*.pub /etc/sysmaint/keys/managed/
 cp keys/backup.pub /etc/sysmaint/keys/backup.pub
-cp repository/.bash_local /etc/sysmaint/repository/.bash_local
+cp repository/.bash_aliases /etc/sysmaint/repository/.bash_aliases
 cp repository/.vimrc /etc/sysmaint/repository/.vimrc
 vi /etc/sysmaint/keys/managed/admin-old.pub
 vi /etc/sysmaint/keys/managed/admin-new.pub
 vi /etc/sysmaint/keys/backup.pub
-vi /etc/sysmaint/repository/.bash_local
+vi /etc/sysmaint/repository/.bash_aliases
 vi /etc/sysmaint/repository/.vimrc
 chmod 600 /etc/sysmaint/keys/managed/*.pub /etc/sysmaint/keys/backup.pub
-chmod 600 /etc/sysmaint/repository/.bash_local /etc/sysmaint/repository/.vimrc
+chmod 600 /etc/sysmaint/repository/.bash_aliases /etc/sysmaint/repository/.vimrc
 ```
 
 If you still use the older flat layout with `old_user.pub` and `new_user.pub`, SysMaint continues to accept it as a fallback until you move to `keys/managed/`.
@@ -75,12 +75,11 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-a
 
 ## 6. Restrict host scope when needed
 
-`only` can take multiple values, matches case-insensitively against the inventory `IP`, DNS, and `Name` fields, and also resolves short hostnames against the local DNS suffix of the management host:
+`only` can take multiple values and matches case-insensitively only against the exact inventory `IP` field:
 
 ```bash
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only app-01.example.net
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only ghost
-SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only ghost --jobs 4
+SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh only app-01.example.net --jobs 4
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-keys.sh only 192.0.2.20 192.0.2.21
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh only 192.0.2.20 --reset
 ```
