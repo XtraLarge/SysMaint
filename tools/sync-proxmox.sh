@@ -56,33 +56,39 @@ get_px_ip() {
 }
 
 get_existing_vmids() {
-  local section_marker=$1
-  local in_section=0
+  local host_name=$1
+  local line current_section=
 
-  while IFS= read -r line; do
-    if [[ $line == *"$section_marker"* ]]; then
-      in_section=1
+  for line in "${HOSTNAMES[@]}"; do
+    if [[ $line == '# '* ]] && [[ ! $line =~ ^'# '(Typ|ID|Name|IP|BS|UP|FR|BK|KY|RS|SH|AF|JP|SG|Host|RB)\> ]]; then
+      current_section=${line#\# }
       continue
     fi
 
-    if (( in_section )) && [[ $line =~ ^'# '[A-Z] ]]; then
-      break
-    fi
+    [[ $line == \#* || $line == \!* ]] && continue
 
-    if (( in_section )) && [[ $line =~ ^[VPN][[:space:]] ]]; then
-      printf '%s' "$line" | awk -F'#' '{gsub(/[[:space:]]/,"",$2); if ($2 != "") print $2}'
+    LINE=$line
+    element
+
+    if [[ ${Host:-} == "$host_name" && -n ${ID:-} ]]; then
+      printf '%s\n' "$ID"
     fi
-  done < "$SYSTEMS_FILE"
+  done
 }
 
 load_proxmox_hosts() {
-  local line
+  local line current_section=
 
   declare -gA PX_HOST_IP=()
   declare -gA PX_HOST_JP=()
   declare -gA PX_SECTION=()
 
   for line in "${HOSTNAMES[@]}"; do
+    if [[ $line == '# '* ]] && [[ ! $line =~ ^'# '(Typ|ID|Name|IP|BS|UP|FR|BK|KY|RS|SH|AF|JP|SG|Host|RB)\> ]]; then
+      current_section=${line#\# }
+      continue
+    fi
+
     [[ $line == \#* ]] && continue
 
     if [[ $line == \!* ]]; then
@@ -98,6 +104,8 @@ load_proxmox_hosts() {
       PX_HOST_IP["$Name"]=$IP
       PX_HOST_JP["$Name"]=${JP:-}
       PX_SECTION["$Name"]="VIRTUAL - ${Name}"
+    elif [[ ${Host:-} != "" && -n $current_section && -z ${PX_SECTION[$Host]:-} ]]; then
+      PX_SECTION["$Host"]=$current_section
     fi
   done
 }
@@ -160,7 +168,7 @@ sync_host() {
   local -A existing_ids=()
   while IFS= read -r id; do
     [[ -n $id ]] && existing_ids["$id"]=1
-  done < <(get_existing_vmids "$section")
+  done < <(get_existing_vmids "$host_name")
 
   local added=0
 
