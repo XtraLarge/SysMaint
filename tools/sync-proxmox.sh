@@ -35,6 +35,18 @@ declare -A PX_SECTION=(
 info() { printf '\033[0;32m[SYNC]\033[0m %s\n' "$*"; }
 warn() { printf '\033[0;33m[WARN]\033[0m %s\n' "$*" >&2; }
 
+format_inventory_entry() {
+  local typ=$1
+  local vmid=$2
+  local vmname=$3
+  local ip=$4
+  local bs=$5
+  local host_name=$6
+
+  printf '%-5s#%-4s#%-25s#%-14s#%-4s#0  #0  #0  #0  #0  #0  #0  #%-4s#%-10s#%s' \
+    "$typ" "$vmid" "$vmname" "$ip" "$bs" "" "" "$host_name"
+}
+
 get_px_ip() {
   local host_ip=$1 vmid=$2 vmtype=$3
   local config ip
@@ -127,8 +139,7 @@ sync_host() {
 
     if [[ -z ${existing_ids[$vmid]:-} ]]; then
       vm_ip=$(get_px_ip "$host_ip" "$vmid" "qemu")
-      entry=$(printf 'V    #%-3s #%-24s #%-13s #D  #0  #0  #0  #0  #0  #0  #0  #  #  #%s' \
-        "$vmid" "$vmname" "${vm_ip:-}" "$host_name")
+      entry=$(format_inventory_entry "V" "$vmid" "$vmname" "${vm_ip:-}" "D" "$host_name")
 
       info "  NEU (VM)  VMID=${vmid} Name=${vmname} IP=${vm_ip:-leer}"
       if (( DRY_RUN == 0 )); then
@@ -150,8 +161,7 @@ sync_host() {
 
     if [[ -z ${existing_ids[$vmid]:-} ]]; then
       vm_ip=$(get_px_ip "$host_ip" "$vmid" "lxc")
-      entry=$(printf 'V    #%-3s #%-24s #%-13s #D  #0  #0  #0  #0  #0  #0  #0  #  #  #%s' \
-        "$vmid" "$vmname" "${vm_ip:-}" "$host_name")
+      entry=$(format_inventory_entry "V" "$vmid" "$vmname" "${vm_ip:-}" "D" "$host_name")
 
       info "  NEU (LXC) VMID=${vmid} Name=${vmname} IP=${vm_ip:-leer}"
       if (( DRY_RUN == 0 )); then
