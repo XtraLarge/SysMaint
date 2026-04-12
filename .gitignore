@@ -3,5 +3,7 @@ logs/last_run.status
 logs/last_jobs/
 logs/state-*/
 logs/final-state-*/
+*.override.sh
+*.override
 keys/*.real.pub
 .DS_Store

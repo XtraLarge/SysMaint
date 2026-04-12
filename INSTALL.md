@@ -27,10 +27,19 @@ install -d -m 700 /etc/sysmaint
 install -d -m 700 /etc/sysmaint/keys
 install -d -m 700 /etc/sysmaint/repository
 install -d -m 700 /etc/sysmaint/repository/aliases
-install -d -m 700 /etc/sysmaint/repository/aliases
 ```
 
-## 3. Provide your real inventory
+## 3. Provide your runtime defaults
+
+Create `/etc/sysmaint/config.sh` based on the example file in the repository:
+
+```bash
+cp config.sh /etc/sysmaint/config.sh
+vi /etc/sysmaint/config.sh
+chmod 600 /etc/sysmaint/config.sh
+```
+
+## 4. Provide your real inventory
 
 Create `/etc/sysmaint/.Systems.sh` based on the example file in the repository. Keep only your real internal names, IPs, and jump hosts in that external file.
 
@@ -44,7 +53,7 @@ vi /etc/sysmaint/.Systems.sh
 chmod 600 /etc/sysmaint/.Systems.sh
 ```
 
-## 4. Provide your real SSH public keys
+## 5. Provide your real SSH public keys
 
 Store your productive public keys outside the repository:
 
@@ -67,9 +76,10 @@ If you still use the older flat layout with `old_user.pub` and `new_user.pub`, S
 If you still use the intermediate flat shell layout with `repository/.bash_aliases`, SysMaint continues to accept it as a fallback until you move to `repository/aliases/`.
 If you still use the older flat shell layout with `repository/.bash_local`, SysMaint continues to accept it as a fallback until you move to `repository/aliases/`.
 
-## 5. Run tasks with external configuration
+## 6. Run tasks with external configuration
 
 ```bash
+CONFIG_FILE=/etc/sysmaint/config.sh SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh full
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh full
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-update.sh full --jobs 6
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh full
@@ -79,7 +89,7 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-a
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh AUTOFS_BASEDIR=/etc/auto.master.d ./run-autofs.sh full --reset
 ```
 
-## 6. Restrict host scope when needed
+## 7. Restrict host scope when needed
 
 `only` can take multiple values and matches case-insensitively only against the exact inventory `IP` field:
 
@@ -90,14 +100,14 @@ SYSTEMS_FILE=/etc/sysmaint/.Systems.sh ./run-keys.sh only 192.0.2.20 192.0.2.21
 SYSTEMS_FILE=/etc/sysmaint/.Systems.sh KEY_DIR=/etc/sysmaint/keys ./run-keys.sh only 192.0.2.20 --reset
 ```
 
-## 7. Review results
+## 8. Review results
 
 ```bash
 ./run-status.sh
 less logs/last_run.log
 ```
 
-## 8. Update the local installation
+## 9. Update the local installation
 
 If the repository was cloned to `/root/SysMaint`, you can update it with:
 
@@ -122,9 +132,9 @@ cd /root/SysMaint
 - Commit script and documentation changes normally.
 - If you need audited local runtime changes, version `/etc/sysmaint` separately in another private repository or in a secure configuration management system.
 
-## Optional runtime tuning in `/etc/sysmaint/.Systems.sh`
+## Optional runtime tuning in `/etc/sysmaint/config.sh`
 
-You can keep additional runtime defaults in the same external inventory file, for example:
+You can keep additional runtime defaults in the external runtime config file, for example:
 
 ```bash
 DEFAULT_JOBS=8

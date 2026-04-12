@@ -17,5 +17,6 @@ link_if_present() {
 }
 
 link_if_present /etc/sysmaint/.Systems.sh "$BASE_DIR/.Systems.override.sh"
+link_if_present /etc/sysmaint/config.sh "$BASE_DIR/config.override.sh"
 link_if_present /etc/sysmaint/keys "$BASE_DIR/keys.override"
 link_if_present /etc/sysmaint/repository "$BASE_DIR/repository.override"

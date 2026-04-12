@@ -7,11 +7,17 @@ set -euo pipefail
 BASE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd "$BASE_DIR"
 
+DEFAULT_CONFIG_FILE=$BASE_DIR/config.sh
+if [[ -r /etc/sysmaint/config.sh ]]; then
+  DEFAULT_CONFIG_FILE=/etc/sysmaint/config.sh
+fi
+
 DEFAULT_SYSTEMS_FILE=$BASE_DIR/.Systems.sh
 if [[ -r /etc/sysmaint/.Systems.sh ]]; then
   DEFAULT_SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
 fi
 
+: "${CONFIG_FILE:=$DEFAULT_CONFIG_FILE}"
 : "${SYSTEMS_FILE:=$DEFAULT_SYSTEMS_FILE}"
 : "${LOG_DIR:=$BASE_DIR/logs}"
 mkdir -p "$LOG_DIR"
@@ -23,6 +29,10 @@ trap 'rm -f "$REBOOT_QUEUE_FILE"' EXIT
 exec > >(tee "$LOG_FILE") 2>&1
 
 source "$BASE_DIR/lib/common.sh"
+if [[ -r $CONFIG_FILE ]]; then
+  # shellcheck source=/dev/null
+  source "$CONFIG_FILE"
+fi
 require_file "$SYSTEMS_FILE"
 # shellcheck source=/dev/null
 source "$SYSTEMS_FILE"
@@ -63,6 +73,7 @@ Host-Filter:
   --jobs N      maximale Zahl gleichzeitiger Host-Jobs, Standard aus DEFAULT_JOBS oder 1
 
 Optionen per Environment:
+  CONFIG_FILE=/etc/sysmaint/config.sh
   SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
   SSH_USER=root
   DEBUG=true

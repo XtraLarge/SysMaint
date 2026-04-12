@@ -16,6 +16,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 
 ## Repository layout
 
+- `config.sh`: example runtime defaults
 - `.Systems.sh`: example inventory with per-host feature flags
 - `manage.sh`: central runner
 - `lib/common.sh`: shared SSH, SCP, filtering, and logging helpers
@@ -37,6 +38,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 The published repository prefers external runtime files:
 
 - inventory: `/etc/sysmaint/.Systems.sh`
+- config: `/etc/sysmaint/config.sh`
 - key directory: `/etc/sysmaint/keys`
 - shell repository overrides: `/etc/sysmaint/repository`
 
@@ -68,7 +70,7 @@ To run against one exact host entry from `.Systems.sh`:
 
 `only` accepts multiple blank-separated values and matches case-insensitively only against the exact `IP` field from `.Systems.sh`.
 Running against all matching systems now requires the explicit argument `full`.
-`--jobs N` enables bounded parallel host execution. The default comes from `DEFAULT_JOBS` in `.Systems.sh` and ships as `8`.
+`--jobs N` enables bounded parallel host execution. The default comes from `DEFAULT_JOBS` in `config.sh` and ships as `8`.
 
 For SSH keys, `--reset` removes all non-SysMaint entries from `authorized_keys` on the selected targets and rebuilds the file from the managed key set only.
 
@@ -131,6 +133,7 @@ Release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
 When external runtime files exist, the local clone can also expose them transparently via:
 
 - `.Systems.override.sh` -> `/etc/sysmaint/.Systems.sh`
+- `config.override.sh` -> `/etc/sysmaint/config.sh`
 - `keys.override` -> `/etc/sysmaint/keys`
 - `repository.override` -> `/etc/sysmaint/repository`
 
@@ -162,7 +165,7 @@ For real environments, prefer one of these approaches:
 
 - Logging supplements console output; it does not replace it.
 - Reboots are queued during update runs and scheduled only after all hosts were processed.
-- Reboot delays can be controlled globally with `DEFAULT_REBOOT_DELAY` and `LOCAL_REBOOT_DELAY`, or per host with the optional `RB` inventory field.
+- Reboot delays can be controlled globally with `DEFAULT_REBOOT_DELAY` and `LOCAL_REBOOT_DELAY` in `config.sh`, or per host with the optional `RB` inventory field.
 - The SSH key task maintains exactly one backup file: `/root/.ssh/authorized_keys.bak`.
 - The SSH key task replaces only the marked SysMaint block in `authorized_keys`.
 - Normal managed SSH keys are read from `keys/managed/*.pub` or `/etc/sysmaint/keys/managed/*.pub`.
@@ -171,7 +174,7 @@ For real environments, prefer one of these approaches:
 - `keys/new_user.pub` and `keys/old_user.pub` remain supported as a backward-compatible fallback if no managed-key directory exists yet.
 - The backup key exists only on systems with `BK=1` inside the managed block and stays separate as `backup.pub`.
 - Managed keys are written with a blank line between entries for readability.
-- Shell packages can now be configured per OS family through variables like `SHELL_PACKAGES_D` in `.Systems.sh`.
+- Shell packages can be configured per OS family through variables like `SHELL_PACKAGES_D` in `config.sh`.
 - AutoFS checks the required local packages on the management host and installs missing ones when supported.
-- RSyslog forwarding can be configured through `RSYSLOG_TARGET_HOST`, `RSYSLOG_TARGET_PORT`, and `RSYSLOG_TARGET_PROTOCOL` in `.Systems.sh`.
+- RSyslog forwarding can be configured through `RSYSLOG_TARGET_HOST`, `RSYSLOG_TARGET_PORT`, and `RSYSLOG_TARGET_PROTOCOL` in `config.sh`.
 - The AutoFS task works locally on the management host.

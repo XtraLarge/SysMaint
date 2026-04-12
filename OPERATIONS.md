@@ -21,6 +21,8 @@ For each entry in `.Systems.sh`, `manage.sh`:
 
 `run-proxmox.sh` is separate from `manage.sh`. It updates `.Systems.sh` from the current guest inventory on the configured Proxmox hosts.
 
+Runtime-wide defaults such as package sets, rsyslog target, key paths, and job counts live in `config.sh` or `/etc/sysmaint/config.sh`.
+
 ## Inventory format
 
 The inventory is a Bash file containing a `HOSTNAMES` array. Header lines beginning with `!` define field names. Data lines use `#` as separator.
