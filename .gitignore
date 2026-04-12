@@ -1,5 +1,6 @@
 logs/last_run.log
 logs/last_run.status
+logs/last_jobs/
 logs/state-*/
 logs/final-state-*/
 keys/*.real.pub

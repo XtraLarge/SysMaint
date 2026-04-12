@@ -8,12 +8,17 @@
 #
 # Verwendung:
 #   ./tools/sync-proxmox.sh [--dry-run]
+#   SYSTEMS_FILE=/pfad/zur/.Systems.sh ./tools/sync-proxmox.sh --dry-run
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-SYSTEMS_FILE="$BASE_DIR/.Systems.sh"
+DEFAULT_SYSTEMS_FILE="$BASE_DIR/.Systems.sh"
+if [[ -r /etc/sysmaint/.Systems.sh ]]; then
+  DEFAULT_SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
+fi
+: "${SYSTEMS_FILE:=$DEFAULT_SYSTEMS_FILE}"
 DRY_RUN=0
 
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1

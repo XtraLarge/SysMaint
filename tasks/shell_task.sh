@@ -104,9 +104,13 @@ run_task() {
   info "Installiere Shell-Konfiguration auf ${Name}"
 
   local shell_packages
+  local alias_content_b64
+  local vimrc_content_b64
   build_alias_content
   shell_packages=$(shell_packages_for_current_os)
   require_file "$SHELL_VIMRC_FILE"
+  alias_content_b64=$(printf '%s' "$ALIAS_CONTENT" | base64 | tr -d '\n')
+  vimrc_content_b64=$(base64 < "$SHELL_VIMRC_FILE" | tr -d '\n')
 
   local remote_script
   remote_script="$(cat <<EOF_REMOTE
@@ -175,10 +179,10 @@ if command -v debconf-set-selections >/dev/null 2>&1 && command -v dpkg-reconfig
 fi
 
 update_managed_file() {
-  local target_file=$1
-  local begin_marker=$2
-  local end_marker=$3
-  local content_file=$4
+  local target_file=\$1
+  local begin_marker=\$2
+  local end_marker=\$3
+  local content_file=\$4
   local base_file
   local output_file
 
@@ -211,13 +215,8 @@ update_managed_file() {
 TMP_BASH_ALIASES_CONTENT=\$(mktemp)
 TMP_VIMRC_CONTENT=\$(mktemp)
 
-cat > "\$TMP_BASH_ALIASES_CONTENT" <<'EOF_BASH_ALIASES'
-${ALIAS_CONTENT}
-EOF_BASH_ALIASES
-
-cat > "\$TMP_VIMRC_CONTENT" <<'EOF_VIM'
-$(cat "$SHELL_VIMRC_FILE")
-EOF_VIM
+printf '%s' '${alias_content_b64}' | base64 -d > "\$TMP_BASH_ALIASES_CONTENT"
+printf '%s' '${vimrc_content_b64}' | base64 -d > "\$TMP_VIMRC_CONTENT"
 
 update_managed_file /root/.bash_aliases "\$BASH_ALIASES_BEGIN" "\$BASH_ALIASES_END" "\$TMP_BASH_ALIASES_CONTENT"
 update_managed_file /root/.vimrc "\$VIMRC_BEGIN" "\$VIMRC_END" "\$TMP_VIMRC_CONTENT"
