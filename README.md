@@ -6,7 +6,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 
 ## What it does
 
-- Runs updates on selected Debian, Univention, and SUSE systems.
+- Runs updates on selected Debian, Proxmox, Univention, and SUSE systems.
 - Rolls out a managed SSH key block while leaving manual `authorized_keys` entries outside that block untouched.
 - Deploys rsyslog forwarding.
 - Installs a baseline shell configuration.

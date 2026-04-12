@@ -17,7 +17,7 @@ mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
 # ID   Freely chosen inventory ID
 # Name Display name
 # IP   Target address or DNS name
-# BS   D=Debian, U=Univention, S=SUSE, X=Other
+# BS   D=Debian, P=Proxmox (handled like Debian), U=Univention, S=SUSE, X=Other
 # UP   Update       1=true, 0=false
 # FR   Force-Reboot 1=true, 0=false
 # BK   Backup key   1=true, 0=false

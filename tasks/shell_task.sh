@@ -21,7 +21,7 @@ shell_packages_for_current_os() {
   local packages
 
   case "${BS:-}" in
-    D|U)
+    D|P|U)
       packages="bash-completion vim less figlet"
       ;;
     S)

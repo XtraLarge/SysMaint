@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aktualisiert .Systems.sh mit dem aktuellen Proxmox-Inventar von GVMHP und NAS.
+# Aktualisiert .Systems.sh mit dem aktuellen Proxmox-Inventar aller Hosts mit BS=P.
 #
 # Verhalten:
 # - Neue VMs/Container werden mit allen Flags=0 eingetragen.
@@ -22,15 +22,6 @@ fi
 DRY_RUN=0
 
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
-
-declare -A PX_HOST_IP=(
-  [GVMHP]="10.10.4.10"
-  [NAS]="10.10.5.10"
-)
-declare -A PX_SECTION=(
-  [GVMHP]="VIRTUAL - GVM"
-  [NAS]="VIRTUAL - NAS"
-)
 
 info() { printf '\033[0;32m[SYNC]\033[0m %s\n' "$*"; }
 warn() { printf '\033[0;33m[WARN]\033[0m %s\n' "$*" >&2; }
@@ -79,6 +70,31 @@ get_existing_vmids() {
       printf '%s' "$line" | awk -F'#' '{gsub(/[[:space:]]/,"",$2); if ($2 != "") print $2}'
     fi
   done < "$SYSTEMS_FILE"
+}
+
+load_proxmox_hosts() {
+  local line in_section=0
+
+  declare -gA PX_HOST_IP=()
+  declare -gA PX_SECTION=()
+
+  while IFS= read -r line; do
+    [[ $line == \#* ]] && continue
+
+    if [[ $line == \!* ]]; then
+      LINE=$line
+      header
+      continue
+    fi
+
+    LINE=$line
+    element
+
+    if [[ ${BS:-} == "P" && -n ${Name:-} && -n ${IP:-} ]]; then
+      PX_HOST_IP["$Name"]=$IP
+      PX_SECTION["$Name"]="VIRTUAL - ${Name}"
+    fi
+  done < <(printf '%s\n' "${HOSTNAMES[@]}")
 }
 
 insert_before_section_end() {
@@ -187,6 +203,13 @@ fi
 (( DRY_RUN )) && info "DRY-RUN Modus -- keine Aenderungen werden geschrieben"
 
 for host in GVMHP NAS; do
+  :
+done
+
+source "$SYSTEMS_FILE"
+load_proxmox_hosts
+
+for host in "${!PX_HOST_IP[@]}"; do
   sync_host "$host"
 done
 

@@ -34,6 +34,7 @@ The standard fields are:
 - `Name`: label used in output
 - `IP`: exact target host or DNS name
 - `BS`: operating system selector
+  `P` marks a Proxmox host and is operationally handled like Debian by the update and shell package logic.
 - `UP`, `FR`, `BK`, `KY`, `RS`, `SH`, `AF`: feature flags
 - `JP`: optional jump host
 - `SG`: optional comma-separated shell groups for shell rollout

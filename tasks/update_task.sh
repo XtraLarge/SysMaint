@@ -5,7 +5,7 @@ BASE_DIR=${BASE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
 source "$BASE_DIR/lib/common.sh"
 
 supports_update() {
-  [[ ${BS:-} =~ ^(D|U|S)$ ]]
+  [[ ${BS:-} =~ ^(D|P|U|S)$ ]]
 }
 
 queue_reboot_if_needed() {
@@ -28,7 +28,7 @@ queue_reboot_if_needed() {
 
 build_update_script() {
   case "${BS:-}" in
-    D)
+    D|P)
       cat <<'REMOTE'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
