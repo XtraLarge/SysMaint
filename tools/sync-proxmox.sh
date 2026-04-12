@@ -14,11 +14,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$BASE_DIR/lib/common.sh"
 DEFAULT_SYSTEMS_FILE="$BASE_DIR/.Systems.sh"
 if [[ -r /etc/sysmaint/.Systems.sh ]]; then
   DEFAULT_SYSTEMS_FILE=/etc/sysmaint/.Systems.sh
 fi
-: "${SYSTEMS_FILE:=$DEFAULT_SYSTEMS_FILE}"
+if [[ -z ${SYSTEMS_FILE:-} || ${SYSTEMS_FILE} == "./.Systems.sh" ]]; then
+  SYSTEMS_FILE=$DEFAULT_SYSTEMS_FILE
+fi
 DRY_RUN=0
 
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
@@ -39,13 +42,13 @@ format_inventory_entry() {
 }
 
 get_px_ip() {
-  local host_ip=$1 vmid=$2 vmtype=$3
+  local host_name=$1 vmid=$2 vmtype=$3
   local config ip
 
   if [[ $vmtype == "qemu" ]]; then
-    config=$(ssh "root@${host_ip}" "qm config ${vmid} 2>/dev/null" 2>/dev/null || true)
+    config=$(run_proxmox_ssh "$host_name" "qm config ${vmid} 2>/dev/null" 2>/dev/null || true)
   else
-    config=$(ssh "root@${host_ip}" "pct config ${vmid} 2>/dev/null" 2>/dev/null || true)
+    config=$(run_proxmox_ssh "$host_name" "pct config ${vmid} 2>/dev/null" 2>/dev/null || true)
   fi
 
   ip=$(printf '%s' "$config" | grep -oP '(?<=ip=)[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
@@ -73,12 +76,13 @@ get_existing_vmids() {
 }
 
 load_proxmox_hosts() {
-  local line in_section=0
+  local line
 
   declare -gA PX_HOST_IP=()
+  declare -gA PX_HOST_JP=()
   declare -gA PX_SECTION=()
 
-  while IFS= read -r line; do
+  for line in "${HOSTNAMES[@]}"; do
     [[ $line == \#* ]] && continue
 
     if [[ $line == \!* ]]; then
@@ -92,9 +96,20 @@ load_proxmox_hosts() {
 
     if [[ ${BS:-} == "P" && -n ${Name:-} && -n ${IP:-} ]]; then
       PX_HOST_IP["$Name"]=$IP
+      PX_HOST_JP["$Name"]=${JP:-}
       PX_SECTION["$Name"]="VIRTUAL - ${Name}"
     fi
-  done < <(printf '%s\n' "${HOSTNAMES[@]}")
+  done
+}
+
+run_proxmox_ssh() {
+  local host_name=$1
+  shift
+
+  IP=${PX_HOST_IP[$host_name]}
+  JP=${PX_HOST_JP[$host_name]-}
+  Name=$host_name
+  run_ssh "$@"
 }
 
 insert_before_section_end() {
@@ -129,13 +144,18 @@ insert_before_section_end() {
 sync_host() {
   local host_name=$1
   local host_ip=${PX_HOST_IP[$host_name]}
+  local host_jp=${PX_HOST_JP[$host_name]-}
   local section=${PX_SECTION[$host_name]}
 
-  info "Pruefe ${host_name} (${host_ip}) ..."
+  if [[ -n $host_jp ]]; then
+    info "Pruefe ${host_name} (${host_ip}) via Jump-Host ${host_jp} ..."
+  else
+    info "Pruefe ${host_name} (${host_ip}) ..."
+  fi
 
   local qm_out pct_out
-  qm_out=$(ssh "root@${host_ip}" 'qm list 2>/dev/null' 2>/dev/null || true)
-  pct_out=$(ssh "root@${host_ip}" 'pct list 2>/dev/null' 2>/dev/null || true)
+  qm_out=$(run_proxmox_ssh "$host_name" 'qm list 2>/dev/null' 2>/dev/null || true)
+  pct_out=$(run_proxmox_ssh "$host_name" 'pct list 2>/dev/null' 2>/dev/null || true)
 
   local -A existing_ids=()
   while IFS= read -r id; do
@@ -154,7 +174,7 @@ sync_host() {
     [[ -z $vmid || -z $vmname ]] && continue
 
     if [[ -z ${existing_ids[$vmid]:-} ]]; then
-      vm_ip=$(get_px_ip "$host_ip" "$vmid" "qemu")
+      vm_ip=$(get_px_ip "$host_name" "$vmid" "qemu")
       entry=$(format_inventory_entry "V" "$vmid" "$vmname" "${vm_ip:-}" "D" "$host_name")
 
       info "  NEU (VM)  VMID=${vmid} Name=${vmname} IP=${vm_ip:-leer}"
@@ -176,7 +196,7 @@ sync_host() {
     [[ -z $vmid || -z $vmname || $vmid == "$vmname" ]] && continue
 
     if [[ -z ${existing_ids[$vmid]:-} ]]; then
-      vm_ip=$(get_px_ip "$host_ip" "$vmid" "lxc")
+      vm_ip=$(get_px_ip "$host_name" "$vmid" "lxc")
       entry=$(format_inventory_entry "V" "$vmid" "$vmname" "${vm_ip:-}" "D" "$host_name")
 
       info "  NEU (LXC) VMID=${vmid} Name=${vmname} IP=${vm_ip:-leer}"
@@ -202,12 +222,13 @@ fi
 
 (( DRY_RUN )) && info "DRY-RUN Modus -- keine Aenderungen werden geschrieben"
 
-for host in GVMHP NAS; do
-  :
-done
-
 source "$SYSTEMS_FILE"
+systems_init
 load_proxmox_hosts
+
+if (( ${#PX_HOST_IP[@]} == 0 )); then
+  warn "Keine Proxmox-Hosts mit BS=P in $SYSTEMS_FILE gefunden."
+fi
 
 for host in "${!PX_HOST_IP[@]}"; do
   sync_host "$host"
