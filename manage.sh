@@ -156,7 +156,7 @@ build_inventory_maps() {
   local saved_sh=${SH-}
   local saved_af=${AF-}
   local saved_jp=${JP-}
-  local saved_ag=${AG-}
+  local saved_sg=${SG-}
   local saved_host=${Host-}
   local saved_rb=${RB-}
   local line key name ip
@@ -210,7 +210,7 @@ build_inventory_maps() {
   SH=$saved_sh
   AF=$saved_af
   JP=$saved_jp
-  AG=$saved_ag
+  SG=$saved_sg
   Host=$saved_host
   RB=$saved_rb
 }
@@ -269,7 +269,7 @@ sanitize_job_name() {
 }
 
 run_task_for_current_host() {
-  export Typ ID Name IP BS UP FR BK KY RS SH AF JP AG Host RB REBOOT_QUEUE_FILE STATUS_FILE AUTOFS_RELOAD_MARKER
+  export Typ ID Name IP BS UP FR BK KY RS SH AF JP SG Host RB REBOOT_QUEUE_FILE STATUS_FILE AUTOFS_RELOAD_MARKER
   TASK_NAME="$FLAG" TASK_SCRIPT="$TASK_SCRIPT" BASE_DIR="$BASE_DIR" SYSTEMS_FILE="$SYSTEMS_FILE" bash "$TASK_SCRIPT" "${TASK_ARGS[@]}"
 }
 
@@ -364,7 +364,7 @@ start_parallel_job() {
   local job_sh=${12}
   local job_af=${13}
   local job_jp=${14}
-  local job_ag=${15}
+  local job_sg=${15}
   local job_host=${16}
   local job_rb=${17}
   local job_slug
@@ -395,7 +395,7 @@ start_parallel_job() {
     SH=$job_sh
     AF=$job_af
     JP=$job_jp
-    AG=$job_ag
+    SG=$job_sg
     Host=$job_host
     RB=$job_rb
     REBOOT_QUEUE_FILE=$job_reboot
@@ -731,7 +731,7 @@ for LINE in "${HOSTNAMES[@]}"; do
 
   if (( JOBS > 1 )); then
     wait_for_parallel_slot
-    start_parallel_job "$matched" "$Name" "$IP" "$BS" "$Typ" "$ID" "$UP" "$FR" "$BK" "$KY" "$RS" "$SH" "$AF" "$JP" "${AG:-}" "${Host:-}" "${RB:-}"
+    start_parallel_job "$matched" "$Name" "$IP" "$BS" "$Typ" "$ID" "$UP" "$FR" "$BK" "$KY" "$RS" "$SH" "$AF" "$JP" "${SG:-}" "${Host:-}" "${RB:-}"
     ((running_jobs+=1))
   else
     print_host_banner "$Name ($IP)"

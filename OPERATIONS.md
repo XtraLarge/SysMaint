@@ -19,6 +19,8 @@ For each entry in `.Systems.sh`, `manage.sh`:
 5. Executes the selected task script once for that host.
 6. Writes both live console output and `logs/last_run.*`.
 
+`run-proxmox.sh` is separate from `manage.sh`. It updates `.Systems.sh` from the current guest inventory on the configured Proxmox hosts.
+
 ## Inventory format
 
 The inventory is a Bash file containing a `HOSTNAMES` array. Header lines beginning with `!` define field names. Data lines use `#` as separator.
@@ -32,7 +34,7 @@ The standard fields are:
 - `BS`: operating system selector
 - `UP`, `FR`, `BK`, `KY`, `RS`, `SH`, `AF`: feature flags
 - `JP`: optional jump host
-- `AG`: optional comma-separated alias groups for shell rollout
+- `SG`: optional comma-separated shell groups for shell rollout
 - `Host`: optional parent host for reboot dependency handling
 - `RB`: optional reboot delay in minutes
 

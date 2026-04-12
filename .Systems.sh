@@ -8,7 +8,7 @@
 # - Comment lines start with #.
 #
 # Standard fields:
-# Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP, AG, Host, RB
+# Typ, ID, Name, IP, BS, UP, FR, BK, KY, RS, SH, AF, JP, SG, Host, RB
 
 # Optional runtime configuration
 # Default bounded parallelism
@@ -41,7 +41,7 @@ RSYSLOG_TARGET_PROTOCOL=${RSYSLOG_TARGET_PROTOCOL:-udp}
 
 IFS=$'\n'
 mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
-!Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP !AG          !Host       !RB
+!Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP !SG          !Host       !RB
 # Typ  P=Physical, V=Virtual, N=Network
 # ID   Freely chosen inventory ID
 # Name Display name
@@ -55,13 +55,13 @@ mapfile -t HOSTNAMES <<'SYSTEMS_EOF'
 # SH   Shell kit    1=true, 0=false
 # AF   AutoFS       1=true, 0=false
 # JP   Jump host    host or IP, empty = direct connection
-# AG   Alias groups, comma-separated. Shell deployment order is base_*, then group_*, then host_*
+# SG   Shell groups, comma-separated. Shell deployment order is base_*, then group_*, then host_*
 # Host Optionaler Host/Hypervisor für Reboot-Abhängigkeiten
 # RB   Optionaler Reboot-Delay in Minuten
 #
 # Example environment
 ###############
-#Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP                     !AG          !Host       !RB
+#Typ !ID  !Name              !IP                    !BS !UP !FR !BK !KY !RS !SH !AF !JP                     !SG          !Host       !RB
 V    #101 #mgmt-node         #192.0.2.10            #D  #1  #1  #1  #1  #1  #1  #1  #                      #            #           #
 V    #102 #docker-node-a     #192.0.2.20            #D  #1  #1  #1  #1  #1  #1  #1  #                      #docker      #fileserver #
 V    #103 #docker-node-b     #192.0.2.21            #D  #1  #1  #1  #1  #1  #1  #1  #                      #docker      #fileserver #
@@ -95,7 +95,7 @@ element() {
   local i value
   local -a ELEM=()
 
-  unset Typ ID Name IP BS UP FR BK KY RS SH AF JP AG Host RB
+  unset Typ ID Name IP BS UP FR BK KY RS SH AF JP SG Host RB
   IFS='#' read -r -a ELEM <<< "$LINE"
 
   for i in "${!HEAD[@]}"; do
@@ -106,11 +106,11 @@ element() {
       value="${Name-}"
     fi
 
-    printf -v "${HEAD[$i]}" '%s' "$value"
+  printf -v "${HEAD[$i]}" '%s' "$value"
   done
 
   : "${JP:=}"
-  : "${AG:=}"
+  : "${SG:=}"
   : "${Host:=}"
   : "${RB:=}"
 }

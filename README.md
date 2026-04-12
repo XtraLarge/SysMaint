@@ -11,6 +11,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - Deploys rsyslog forwarding.
 - Installs a baseline shell configuration.
 - Generates local AutoFS mapping files on the management host.
+- Synchronizes Proxmox guests into the inventory template.
 - Writes console output live and also stores the latest run log and status summary.
 
 ## Repository layout
@@ -52,6 +53,7 @@ chmod +x manage.sh run-*.sh tasks/*.sh
 ./run-shell.sh full
 ./run-autofs.sh full
 ./run-autofs.sh full --reset
+./run-proxmox.sh --dry-run
 ./run-status.sh
 ```
 
@@ -82,7 +84,7 @@ Each inventory entry carries flags that decide which task is active for that tar
 - `SH`: deploy shell baseline files
 - `AF`: generate AutoFS files for the host
 - `JP`: jump host for SSH and SCP access
-- `AG`: optional comma-separated alias groups for shell rollout
+- `SG`: optional comma-separated shell groups for shell rollout
 - `Host`: optional parent host or hypervisor for reboot dependency handling
 - `RB`: optional reboot delay in minutes for that system
 
@@ -91,7 +93,7 @@ Each inventory entry carries flags that decide which task is active for that tar
 Shell aliases are deployed in three stages, with the most specific files appended last:
 
 - `base_<name>.sh`: always included for `SH=1` systems, alphabetically
-- `group_<name>.sh`: included when `AG=<name>` is set in `.Systems.sh`
+- `group_<name>.sh`: included when `SG=<name>` is set in `.Systems.sh`
 - `host_<Name>.sh`: included automatically when a matching host-specific file exists
 
 File lookup is case-insensitive. For productive environments, keep private or host-specific alias files in `/etc/sysmaint/repository/aliases` instead of committing them to Git.

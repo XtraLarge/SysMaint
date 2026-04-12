@@ -34,6 +34,8 @@ install -d -m 700 /etc/sysmaint/repository/aliases
 
 Create `/etc/sysmaint/.Systems.sh` based on the example file in the repository. Keep only your real internal names, IPs, and jump hosts in that external file.
 
+Use the field `SG` for shell groups.
+
 Minimal example:
 
 ```bash

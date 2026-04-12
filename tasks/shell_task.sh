@@ -44,6 +44,7 @@ build_alias_content() {
   local alias_file group group_file host_file
   local -a matches=()
   local nocaseglob_was_set=0
+  local shell_groups=${SG:-}
 
   if [[ -d $SHELL_ALIASES_DIR ]]; then
     shopt -q nocaseglob && nocaseglob_was_set=1
@@ -56,8 +57,8 @@ build_alias_content() {
       ALIAS_CONTENT+=$'\n'
     done
 
-    if [[ -n ${AG:-} ]]; then
-      IFS=',' read -r -a matches <<< "${AG:-}"
+    if [[ -n $shell_groups ]]; then
+      IFS=',' read -r -a matches <<< "$shell_groups"
       for group in "${matches[@]}"; do
         group=${group//[[:space:]]/}
         [[ -n $group ]] || continue
