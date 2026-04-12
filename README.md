@@ -26,7 +26,7 @@ For productive use, keep real host inventories, SSH public keys, jump hosts, sys
 - `run-*.sh`: convenience wrappers around `manage.sh`
 - `scripts/`: helper scripts for checks, PR workflow, and releases
 - `repository/`: example shell and editor dotfiles
-  `.bash_aliases` is the generic shell baseline file
+  `repository/aliases/` contains the staged shell alias snippets, `.bash_aliases` remains a flat fallback
 - `keys/`: example public key files for the key rollout
   `keys/managed/` contains the normal managed keys, `keys/backup.pub` stays separate
 - `logs/`: runtime output directory, kept out of versioned logs by `.gitignore`
@@ -82,8 +82,19 @@ Each inventory entry carries flags that decide which task is active for that tar
 - `SH`: deploy shell baseline files
 - `AF`: generate AutoFS files for the host
 - `JP`: jump host for SSH and SCP access
+- `AG`: optional comma-separated alias groups for shell rollout
 - `Host`: optional parent host or hypervisor for reboot dependency handling
 - `RB`: optional reboot delay in minutes for that system
+
+## Alias groups
+
+Shell aliases are deployed in three stages, with the most specific files appended last:
+
+- `base_<name>.sh`: always included for `SH=1` systems, alphabetically
+- `group_<name>.sh`: included when `AG=<name>` is set in `.Systems.sh`
+- `host_<Name>.sh`: included automatically when a matching host-specific file exists
+
+File lookup is case-insensitive. For productive environments, keep private or host-specific alias files in `/etc/sysmaint/repository/aliases` instead of committing them to Git.
 
 ## Change control
 
@@ -129,7 +140,7 @@ This repository is designed to stay free of infrastructure secrets and internal 
 - `keys/managed/*.pub` and `keys/backup.pub` contain example public keys only.
 - `logs/last_run.log` and `logs/last_run.status` are not stored in Git.
 - RSyslog defaults use generic values.
-- Example shell dotfiles contain no internal hostnames or private paths.
+- Example shell dotfiles and alias snippets contain no internal hostnames or private paths.
 
 For real environments, prefer one of these approaches:
 
@@ -153,6 +164,8 @@ For real environments, prefer one of these approaches:
 - The SSH key task maintains exactly one backup file: `/root/.ssh/authorized_keys.bak`.
 - The SSH key task replaces only the marked SysMaint block in `authorized_keys`.
 - Normal managed SSH keys are read from `keys/managed/*.pub` or `/etc/sysmaint/keys/managed/*.pub`.
+- `repository/.bash_aliases` remains supported as a backward-compatible fallback when no `repository/aliases/` directory exists yet.
+- `repository/.bash_local` remains supported as a backward-compatible fallback when no `repository/aliases/` directory exists yet.
 - `keys/new_user.pub` and `keys/old_user.pub` remain supported as a backward-compatible fallback if no managed-key directory exists yet.
 - The backup key exists only on systems with `BK=1` inside the managed block and stays separate as `backup.pub`.
 - Managed keys are written with a blank line between entries for readability.

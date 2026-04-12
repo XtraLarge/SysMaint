@@ -11,11 +11,11 @@ if [[ -d /etc/sysmaint/repository ]]; then
 fi
 
 SHELL_REPOSITORY_DIR=${SHELL_REPOSITORY_DIR:-$DEFAULT_SHELL_REPOSITORY_DIR}
+SHELL_ALIASES_DIR=${SHELL_ALIASES_DIR:-$SHELL_REPOSITORY_DIR/aliases}
 SHELL_BASH_ALIASES_FILE=${SHELL_BASH_ALIASES_FILE:-$SHELL_REPOSITORY_DIR/.bash_aliases}
-if [[ ! -f $SHELL_BASH_ALIASES_FILE ]]; then
-  SHELL_BASH_ALIASES_FILE=$SHELL_REPOSITORY_DIR/.bash_local
-fi
+SHELL_BASH_LOCAL_FILE=${SHELL_BASH_LOCAL_FILE:-$SHELL_REPOSITORY_DIR/.bash_local}
 SHELL_VIMRC_FILE=${SHELL_VIMRC_FILE:-$SHELL_REPOSITORY_DIR/.vimrc}
+
 shell_packages_for_current_os() {
   local var_name="SHELL_PACKAGES_${BS:-}"
   local packages
@@ -39,11 +39,73 @@ shell_packages_for_current_os() {
   printf '%s' "$packages"
 }
 
+build_alias_content() {
+  ALIAS_CONTENT=""
+  local alias_file group group_file host_file
+  local -a matches=()
+  local nocaseglob_was_set=0
+
+  if [[ -d $SHELL_ALIASES_DIR ]]; then
+    shopt -q nocaseglob && nocaseglob_was_set=1
+    shopt -s nocaseglob
+
+    for alias_file in "$SHELL_ALIASES_DIR"/base_*.sh; do
+      [[ -f $alias_file ]] || continue
+      dbg "Lade Basis-Aliase: $(basename "$alias_file")"
+      ALIAS_CONTENT+=$(cat "$alias_file")
+      ALIAS_CONTENT+=$'\n'
+    done
+
+    if [[ -n ${AG:-} ]]; then
+      IFS=',' read -r -a matches <<< "${AG:-}"
+      for group in "${matches[@]}"; do
+        group=${group//[[:space:]]/}
+        [[ -n $group ]] || continue
+        matches=("$SHELL_ALIASES_DIR"/group_"$group".sh)
+        group_file=${matches[0]-}
+        if [[ -f ${group_file:-} ]]; then
+          info "Alias-Gruppe '${group}' wird hinzugefuegt"
+          ALIAS_CONTENT+=$(cat "$group_file")
+          ALIAS_CONTENT+=$'\n'
+        else
+          warn "Alias-Gruppe '${group}' definiert, aber Datei nicht gefunden"
+        fi
+      done
+    fi
+
+    matches=("$SHELL_ALIASES_DIR"/host_"$Name".sh)
+    host_file=${matches[0]-}
+    if [[ -f ${host_file:-} ]]; then
+      info "Host-spezifische Aliase fuer '${Name}' werden hinzugefuegt"
+      ALIAS_CONTENT+=$(cat "$host_file")
+      ALIAS_CONTENT+=$'\n'
+    fi
+
+    (( nocaseglob_was_set )) || shopt -u nocaseglob
+  fi
+
+  if [[ -n $ALIAS_CONTENT ]]; then
+    return 0
+  fi
+
+  if [[ -f $SHELL_BASH_ALIASES_FILE ]]; then
+    info "Nutze Fallback-Aliasdatei $(basename "$SHELL_BASH_ALIASES_FILE")"
+    ALIAS_CONTENT=$(cat "$SHELL_BASH_ALIASES_FILE")
+    return 0
+  fi
+
+  require_file "$SHELL_BASH_LOCAL_FILE"
+  info "Nutze Legacy-Aliasdatei $(basename "$SHELL_BASH_LOCAL_FILE")"
+  ALIAS_CONTENT=$(cat "$SHELL_BASH_LOCAL_FILE")
+}
+
 run_task() {
   info "Installiere Shell-Konfiguration auf ${Name}"
 
   local shell_packages
+  build_alias_content
   shell_packages=$(shell_packages_for_current_os)
+  require_file "$SHELL_VIMRC_FILE"
 
   local remote_script
   remote_script="$(cat <<EOF_REMOTE
@@ -149,7 +211,7 @@ TMP_BASH_ALIASES_CONTENT=\$(mktemp)
 TMP_VIMRC_CONTENT=\$(mktemp)
 
 cat > "\$TMP_BASH_ALIASES_CONTENT" <<'EOF_BASH_ALIASES'
-$(cat "$SHELL_BASH_ALIASES_FILE")
+${ALIAS_CONTENT}
 EOF_BASH_ALIASES
 
 cat > "\$TMP_VIMRC_CONTENT" <<'EOF_VIM'
@@ -164,8 +226,9 @@ if [[ ! -f /root/.bashrc ]]; then
   touch /root/.bashrc
 fi
 
-  sed -i '/\[\[ -f \/root\/\.bashxl \]\] && \. \/root\/\.bashxl/d' /root/.bashrc
-  grep -Fqx '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' /root/.bashrc 2>/dev/null || \
+sed -i '/\[\[ -f \/root\/\.bashxl \]\] && \. \/root\/\.bashxl/d' /root/.bashrc
+sed -i '/\[\[ -f \/root\/\.bash_local \]\] && \. \/root\/\.bash_local/d' /root/.bashrc
+grep -Fqx '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' /root/.bashrc 2>/dev/null || \
   printf '%s\n' '[[ -f /root/.bash_aliases ]] && . /root/.bash_aliases' >> /root/.bashrc
 
 exit 0

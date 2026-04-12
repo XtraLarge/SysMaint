@@ -32,6 +32,9 @@ The standard fields are:
 - `BS`: operating system selector
 - `UP`, `FR`, `BK`, `KY`, `RS`, `SH`, `AF`: feature flags
 - `JP`: optional jump host
+- `AG`: optional comma-separated alias groups for shell rollout
+- `Host`: optional parent host for reboot dependency handling
+- `RB`: optional reboot delay in minutes
 
 ## SSH behavior
 
@@ -91,9 +94,11 @@ These values should normally be supplied per run or through the environment.
 
 - packages like `bash-completion`, `vim`, `less`
 - `de_DE.UTF-8` locale
-- base aliases
+- aliases from `repository/aliases/` in the order `base_*`, `group_*`, `host_*`
 - `/root/.vimrc` when missing
 - sourcing of `/root/.bash_aliases`
+
+If no alias directory exists, the shell task falls back to the older single-file baseline `repository/.bash_local`.
 
 ## AutoFS task
 

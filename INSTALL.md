@@ -26,6 +26,8 @@ chmod +x manage.sh run-*.sh tasks/*.sh
 install -d -m 700 /etc/sysmaint
 install -d -m 700 /etc/sysmaint/keys
 install -d -m 700 /etc/sysmaint/repository
+install -d -m 700 /etc/sysmaint/repository/aliases
+install -d -m 700 /etc/sysmaint/repository/aliases
 ```
 
 ## 3. Provide your real inventory
@@ -48,18 +50,20 @@ Store your productive public keys outside the repository:
 install -d -m 700 /etc/sysmaint/keys/managed
 cp keys/managed/*.pub /etc/sysmaint/keys/managed/
 cp keys/backup.pub /etc/sysmaint/keys/backup.pub
-cp repository/.bash_aliases /etc/sysmaint/repository/.bash_aliases
+cp repository/aliases/*.sh /etc/sysmaint/repository/aliases/
 cp repository/.vimrc /etc/sysmaint/repository/.vimrc
 vi /etc/sysmaint/keys/managed/admin-old.pub
 vi /etc/sysmaint/keys/managed/admin-new.pub
 vi /etc/sysmaint/keys/backup.pub
-vi /etc/sysmaint/repository/.bash_aliases
+vi /etc/sysmaint/repository/aliases/base_core.sh
 vi /etc/sysmaint/repository/.vimrc
 chmod 600 /etc/sysmaint/keys/managed/*.pub /etc/sysmaint/keys/backup.pub
-chmod 600 /etc/sysmaint/repository/.bash_aliases /etc/sysmaint/repository/.vimrc
+chmod 600 /etc/sysmaint/repository/aliases/*.sh /etc/sysmaint/repository/.vimrc
 ```
 
 If you still use the older flat layout with `old_user.pub` and `new_user.pub`, SysMaint continues to accept it as a fallback until you move to `keys/managed/`.
+If you still use the intermediate flat shell layout with `repository/.bash_aliases`, SysMaint continues to accept it as a fallback until you move to `repository/aliases/`.
+If you still use the older flat shell layout with `repository/.bash_local`, SysMaint continues to accept it as a fallback until you move to `repository/aliases/`.
 
 ## 5. Run tasks with external configuration
 
