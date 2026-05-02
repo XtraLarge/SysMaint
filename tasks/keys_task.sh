@@ -113,9 +113,11 @@ printf "%s\n" "$MANAGED_BEGIN" >> "$TMP_FILE"
 cat "$TMP_MANAGED" >> "$TMP_FILE"
 printf "%s\n" "$MANAGED_END" >> "$TMP_FILE"
 
-chmod 600 "$TMP_FILE"
-install -m 600 "$TMP_FILE" "$AUTH_FILE"
-rm -f "$TMP_FILE" "$TMP_MANAGED"
+TMP_DEDUP="$(mktemp)"
+awk 'NF && !seen[$0]++' "$TMP_FILE" > "$TMP_DEDUP"
+chmod 600 "$TMP_DEDUP"
+install -m 600 "$TMP_DEDUP" "$AUTH_FILE"
+rm -f "$TMP_FILE" "$TMP_MANAGED" "$TMP_DEDUP"
 EOF_REMOTE
 )
 

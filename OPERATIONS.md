@@ -86,12 +86,24 @@ Manual entries outside that block remain untouched.
 
 `tasks/rsyslog_task.sh` writes a forwarding configuration, validates rsyslog if available, enables the service, and restarts it.
 
-Default destination:
+The destination comes from runtime configuration, normally `/etc/sysmaint/config.sh` on the management host.
+
+Published example defaults:
 
 - `TARGET_HOST=syslog.example.net`
 - `TARGET_PORT=1514`
 
-These values should normally be supplied per run or through the environment.
+Productive runtime currently uses:
+
+- `RSYSLOG_TARGET_HOST=srv-syslog.fritz.box`
+- `RSYSLOG_TARGET_PORT=1514`
+- `RSYSLOG_TARGET_PROTOCOL=udp`
+
+Operational rule:
+
+- Test the task on one host first with `./run-rsyslog.sh only <ip-or-dns>`.
+- Then run `./run-rsyslog.sh full`.
+- Leave `RS=0` on systems that are currently stopped or not reachable, instead of carrying them as recurring failures in the full run.
 
 ## Shell task
 
