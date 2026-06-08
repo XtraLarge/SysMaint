@@ -93,9 +93,9 @@ Published example defaults:
 - `TARGET_HOST=syslog.example.net`
 - `TARGET_PORT=1514`
 
-Productive runtime currently uses:
+Productive runtime overrides these in local `config.sh` (kept out of this repo):
 
-- `RSYSLOG_TARGET_HOST=srv-syslog.fritz.box`
+- `RSYSLOG_TARGET_HOST=<your-syslog-host>`
 - `RSYSLOG_TARGET_PORT=1514`
 - `RSYSLOG_TARGET_PROTOCOL=udp`
 
