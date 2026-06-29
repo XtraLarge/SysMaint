@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Repository checks (shell syntax + naming-guard)
+        # scripts/check.sh ist der maszgebliche Guard: bash -n der Skripte +
+        # grep gegen interne Netz-/Hostnamen (private IP-Bereiche, interne lokale
+        # Domains, SSH-Keys, interne Namen). Rot bei Treffer -> verhindert, dass
+        # interne Werte in dieses oeffentliche Repo gelangen.
+        run: bash scripts/check.sh

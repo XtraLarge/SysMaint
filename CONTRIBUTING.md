@@ -109,3 +109,16 @@ It also refreshes transparent runtime links when `/etc/sysmaint` is present:
 - `.Systems.override.sh`
 - `keys.override`
 - `repository.override`
+
+## Automated checks (CI gate)
+
+This is a **public** repository — no internal IPs, internal hostnames or local
+domains, SSH keys, or productive inventory may land in Git.
+
+`scripts/check.sh` enforces this (shell syntax + naming/secret grep). It is now run
+automatically as the **authoritative gate**:
+
+- **CI (mandatory):** `.github/workflows/ci.yml` runs `scripts/check.sh` on every
+  push and pull request -> the check turns **red** on any hit.
+- **Pre-commit (optional, recommended):** catch it locally before pushing -
+  `pip install pre-commit && pre-commit install` (config: `.pre-commit-config.yaml`).
