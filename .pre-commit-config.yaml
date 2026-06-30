@@ -1,0 +1,11 @@
+# Lokaler Zusatz-Schutz vor dem Push (das CI-Gate .github/workflows/ci.yml ist maszgeblich).
+# Aktivieren:  pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: repo-checks
+        name: repo checks (shell syntax + naming-guard)
+        entry: scripts/check.sh
+        language: script
+        pass_filenames: false
+        always_run: true
