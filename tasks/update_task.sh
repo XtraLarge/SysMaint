@@ -32,6 +32,7 @@ build_update_script() {
       cat <<'REMOTE'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 APT_OPT='-y -qq -o DPkg::Options::=--force-confold -o DPkg::Options::=--force-overwrite -o DPkg::Options::=--force-overwrite-dir --trivial-only=no'
 apt-get update
 dpkg --configure -a
@@ -46,6 +47,7 @@ REMOTE
       cat <<'REMOTE'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 APT_OPT='-y -qq -o DPkg::Options::=--force-confold -o DPkg::Options::=--force-overwrite -o DPkg::Options::=--force-overwrite-dir --trivial-only=no'
 apt-get update
 dpkg --configure -a
@@ -59,6 +61,7 @@ REMOTE
     S)
       cat <<'REMOTE'
 set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ZYPPER_OPT='--non-interactive --no-gpg-checks --quiet'
 zypper $ZYPPER_OPT refresh
 zypper $ZYPPER_OPT install sudo at
