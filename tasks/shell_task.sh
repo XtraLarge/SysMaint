@@ -25,7 +25,7 @@ shell_packages_for_current_os() {
       packages="bash-completion vim less figlet"
       ;;
     S)
-      packages="vim less"
+      packages="vim less fzf"
       ;;
     *)
       packages=${SHELL_PACKAGES_DEFAULT:-}
