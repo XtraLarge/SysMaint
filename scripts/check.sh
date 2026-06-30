@@ -8,12 +8,14 @@ bash -n \
   "$BASE_DIR/manage.sh" \
   "$BASE_DIR/lib/common.sh" \
   "$BASE_DIR/tasks/update_task.sh" \
+  "$BASE_DIR/tasks/unattended_task.sh" \
   "$BASE_DIR/tasks/keys_task.sh" \
   "$BASE_DIR/tasks/rsyslog_task.sh" \
   "$BASE_DIR/tasks/shell_task.sh" \
   "$BASE_DIR/tasks/autofs_task.sh" \
   "$BASE_DIR/tools/sync-proxmox.sh" \
   "$BASE_DIR/run-update.sh" \
+  "$BASE_DIR/run-unattended.sh" \
   "$BASE_DIR/run-keys.sh" \
   "$BASE_DIR/run-rsyslog.sh" \
   "$BASE_DIR/run-shell.sh" \

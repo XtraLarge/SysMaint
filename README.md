@@ -57,6 +57,8 @@ chmod +x manage.sh run-*.sh tasks/*.sh
 ./run-autofs.sh full --reset
 ./run-proxmox.sh --dry-run
 ./run-status.sh
+./run-unattended.sh                 # audit unattended-upgrades (read-only)
+./run-unattended.sh apply           # reconcile fleet (opt-in, changing)
 ```
 
 To run against one exact host entry from `.Systems.sh`:
