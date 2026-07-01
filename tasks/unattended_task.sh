@@ -29,9 +29,10 @@ source "$BASE_DIR/lib/common.sh"
 #   Policy B (alle Debian-Updates): NON_SECURITY_ORIGIN-Zeile bleibt aktiv.
 #   Policy A (security-only):        NON_SECURITY_ORIGIN-Zeile auskommentieren.
 # ---------------------------------------------------------------------------
-NON_SECURITY_ORIGIN='origin=Debian,codename=${distro_codename},label=Debian'   # <-- A<->B-Toggle
+# Policy A (security-only, Auftrag #836): NON_SECURITY_ORIGIN deaktiviert
+# NON_SECURITY_ORIGIN='origin=Debian,codename=${distro_codename},label=Debian'   # <-- A<->B-Toggle
 CANON_ORIGINS=(
-  "$NON_SECURITY_ORIGIN"
+  # "$NON_SECURITY_ORIGIN"  # Policy A: deaktiviert
   'origin=Debian,codename=${distro_codename},label=Debian-Security'
   'origin=Debian,codename=${distro_codename}-security,label=Debian-Security'
 )
