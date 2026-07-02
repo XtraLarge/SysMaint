@@ -84,7 +84,18 @@ detect(){
   done <<EOF_L
 $CANON
 EOF_L
-  origins=ok; [ "$omiss" -gt 0 ] && origins=drift
+  # Surplus-Erkennung (#387 Blind-Spot): effektive Origins, die NICHT im Kanon
+  # stehen (z.B. verbliebenes Nicht-Security-Origin nach Policy-Rueckbau B->A
+  # aus einem fremden Dropin/50-edit). Dedup, damit mehrfach identische Kanon-
+  # Origins (mehrere Dropins) nicht faelschlich als Surplus zaehlen.
+  osurp=0
+  while IFS= read -r e; do
+    [ -n "$e" ] || continue
+    printf '%s\n' "$CANON" | grep -qxF "$e" || osurp=$((osurp+1))
+  done <<EOF_S
+$(printf '%s\n' "$eff" | sort -u)
+EOF_S
+  origins=ok; { [ "$omiss" -gt 0 ] || [ "$osurp" -gt 0 ]; } && origins=drift
   arv="$(apt-config dump 2>/dev/null | grep 'utomatic-Re' | sed -n 's/.*"\(.*\)".*/\1/p' | head -n1)"
   autorestart=ok; case "$arv" in [Tt]rue|1) autorestart=on ;; esac
   te=bad; ta=bad
@@ -100,6 +111,9 @@ EOF_L
 
 gen_drop(){
   printf '%s\n' "// Verwaltet von SysMaint unattended_task.sh - nicht von Hand editieren." \
+                "// #clear macht dieses Dropin autoritativ: entfernt Origins aus frueher" \
+                "// sortierten Dropins (z.B. editiertes 50unattended-upgrades) -> nur Kanon." \
+                "#clear Unattended-Upgrade::Origins-Pattern;" \
                 "Unattended-Upgrade::Origins-Pattern {"
   while IFS= read -r c; do
     [ -n "$c" ] || continue
@@ -145,7 +159,7 @@ if [ "$MODE" = "apply" ]; then
   detect
   echo "UUAPPLY changed=[${changed:-none}] dry=${dry}"
 fi
-echo "UUDATA uu=${uu} periodic=${periodic} f20=${f20} origins=${origins} omiss=${omiss} autorestart=${autorestart} tenab=${te} tact=${ta} stamp=${stamp}"
+echo "UUDATA uu=${uu} periodic=${periodic} f20=${f20} origins=${origins} omiss=${omiss} osurp=${osurp} autorestart=${autorestart} tenab=${te} tact=${ta} stamp=${stamp}"
 EOF_REMOTE
 }
 
@@ -176,7 +190,7 @@ if out="$(remote_run "$mode" 2>/dev/null)"; then
   [[ "$(val tenab)"       == ok ]] || gaps="${gaps}timer-enable "
   [[ "$(val tact)"        == ok ]] || gaps="${gaps}timer-active "
   status=OK; [[ -n $gaps ]] && status=GAP
-  emit "$status" "$(val uu)" "$(val periodic)" "$(val f20)" "$(val origins)/miss$(val omiss)" \
+  emit "$status" "$(val uu)" "$(val periodic)" "$(val f20)" "$(val origins)/miss$(val omiss)/surp$(val osurp)" \
        "$(val autorestart)" "$(val tenab)/$(val tact)" "$(val stamp)" "${gaps:-none}"
   [[ -n $applyline ]] && printf 'UU-APPLY|%s|%s|%s\n' "${Name}" "${IP}" "${applyline#UUAPPLY }"
   printf '%s\n' "$out" | grep '^UUERR ' && warn "${Name}: Apply-Fehler (siehe UUERR)" || true
