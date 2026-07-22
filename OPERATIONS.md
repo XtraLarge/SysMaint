@@ -49,6 +49,8 @@ Shared SSH logic lives in `lib/common.sh`.
 - SSH options are built centrally and handled as arrays.
 - If `JP` is set, SSH and SCP use that host as jump host.
 - `remove_known_host` clears old host keys before update runs.
+- `SSH_OPTS_BASE` includes `ServerAliveInterval=15` / `ServerAliveCountMax=4` so dead established sessions are detected in ~60s.
+- Every SSH/SCP call runs under a hard `timeout` cap (`SSH_CMD_TIMEOUT`, default 1800s; prechecks `SSH_PRECHECK_TIMEOUT`, default 60s) to bound banner-exchange hangs where keepalive does not apply. Set to `0` to disable.
 
 ## Update task
 
