@@ -198,5 +198,9 @@ if out="$(remote_run "$mode" 2>/dev/null)"; then
 else
   warn "${Name}: nicht erreichbar oder Audit fehlgeschlagen"
   emit ERROR - - - - - - - unreachable
-  [[ $APPLY == 1 ]] && exit 1 || exit 0
+  # Sentinel-Exitcode 3 = UNREACHABLE (eigener Nicht-OK-Status in manage.sh).
+  # Frueher: [[ $APPLY == 1 ]] && exit 1 || exit 0  -> im Audit-Modus exit 0,
+  # wodurch manage.sh RESULT=OK schrieb und offline Hosts still maskiert wurden
+  # (#906). Jetzt in BEIDEN Modi ein dedizierter Nicht-OK-Exit.
+  exit 3
 fi

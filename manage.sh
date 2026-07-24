@@ -416,7 +416,11 @@ start_parallel_job() {
       printf 'OK\n' > "$job_result"
     else
       rc=$?
-      printf 'FAILED|%s\n' "$rc" > "$job_result"
+      if [[ $rc == 3 ]]; then
+        printf 'UNREACHABLE\n' > "$job_result"
+      else
+        printf 'FAILED|%s\n' "$rc" > "$job_result"
+      fi
     fi
   ) &
 
@@ -453,6 +457,12 @@ finish_parallel_job() {
   if [[ $result == OK* ]]; then
     printf '%b%s%b\n' "$TEXT_GREEN" "$job_name erfolgreich verarbeitet" "$TEXT_RESET"
     append_status "$job_name" "$job_ip" "$FLAG" "OK" "Task erfolgreich"
+  elif [[ $result == UNREACHABLE ]]; then
+    printf '%b%s%b\n' "$TEXT_RED_B" "$job_name nicht erreichbar" "$TEXT_RESET"
+    warn "Job-Log für ${job_name}: ${job_log}"
+    unreachable_hosts+=("$job_name")
+    ((unreachable+=1))
+    append_status "$job_name" "$job_ip" "$FLAG" "UNREACHABLE" "Host nicht erreichbar"
   else
     rc=${result#FAILED|}
     printf '%b%s%b\n' "$TEXT_RED_B" "$job_name fehlgeschlagen (rc=$rc)" "$TEXT_RESET"
@@ -687,9 +697,11 @@ fi
 processed=0
 matched=0
 failed=0
+unreachable=0
 skipped=0
 filtered_out=0
 failed_hosts=()
+unreachable_hosts=()
 running_jobs=0
 declare -a JOB_PIDS=()
 declare -a JOB_NAMES=()
@@ -751,10 +763,17 @@ for LINE in "${HOSTNAMES[@]}"; do
       append_status "$Name" "$IP" "$FLAG" "OK" "Task erfolgreich"
     else
       rc=$?
-      printf '%b%s%b\n' "$TEXT_RED_B" "$Name fehlgeschlagen (rc=$rc)" "$TEXT_RESET"
-      failed_hosts+=("$Name")
-      ((failed+=1))
-      append_status "$Name" "$IP" "$FLAG" "FAILED" "Task fehlgeschlagen rc=$rc"
+      if [[ $rc == 3 ]]; then
+        printf '%b%s%b\n' "$TEXT_RED_B" "$Name nicht erreichbar" "$TEXT_RESET"
+        unreachable_hosts+=("$Name")
+        ((unreachable+=1))
+        append_status "$Name" "$IP" "$FLAG" "UNREACHABLE" "Host nicht erreichbar"
+      else
+        printf '%b%s%b\n' "$TEXT_RED_B" "$Name fehlgeschlagen (rc=$rc)" "$TEXT_RESET"
+        failed_hosts+=("$Name")
+        ((failed+=1))
+        append_status "$Name" "$IP" "$FLAG" "FAILED" "Task fehlgeschlagen rc=$rc"
+      fi
     fi
   fi
 done
@@ -784,9 +803,18 @@ info "Passende Ziele: $matched"
 info "Durch Host-Filter ausgeschlossen: $filtered_out"
 info "Übersprungen: $skipped"
 info "Fehlgeschlagen: $failed"
+info "Nicht erreichbar: $unreachable"
+
+if (( unreachable > 0 )); then
+  unreachable_hosts_text=$(printf '\n%s' "${unreachable_hosts[@]}")
+  warn "Nicht erreichbare Systeme: ${unreachable_hosts_text}"
+fi
 
 if (( failed > 0 )); then
   failed_hosts_text=$(printf '\n%s' "${failed_hosts[@]}")
   warn "Fehlgeschlagene Systeme: ${failed_hosts_text}"
+fi
+
+if (( failed > 0 || unreachable > 0 )); then
   exit 1
 fi
