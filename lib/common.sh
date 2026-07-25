@@ -115,6 +115,31 @@ $remote_script
 EOF_REMOTE
 }
 
+# ---------------------------------------------------------------------------
+# ssh_reachable: leichtgewichtiger Erreichbarkeits-Probe (nur SSH-Connect, kein
+# Remote-Task). Fuehrt lediglich 'true' auf dem Ziel aus. Return 0 = SSH-
+# Verbindung steht (Host ERREICHBAR), sonst nicht erreichbar. Dient dazu, im
+# Fehlerfall echte Unerreichbarkeit von "erreichbar, aber Task fehlgeschlagen"
+# (z.B. bash/apt fehlt, Remote-Skript-Fehler) zu unterscheiden. Nutzt bewusst
+# 'true' (POSIX) statt eines Interpreter-Checks, damit fehlendes bash NICHT
+# faelschlich als unerreichbar gewertet wird (#1837).
+# ---------------------------------------------------------------------------
+ssh_reachable() {
+  local target
+  local -a ssh_opts=()
+  target=$(build_ssh_target)
+
+  while IFS= read -r -d '' opt; do
+    ssh_opts+=("$opt")
+  done < <(build_ssh_base_opts)
+
+  if [[ -n ${JP:-} ]]; then
+    ssh_opts+=(-J "${SSH_USER}@${JP}")
+  fi
+
+  with_timeout "$SSH_PRECHECK_TIMEOUT" ssh "${ssh_opts[@]}" "$target" true >/dev/null 2>&1
+}
+
 run_ssh_sh() {
   local remote_script=$1
   local target

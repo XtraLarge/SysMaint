@@ -418,6 +418,8 @@ start_parallel_job() {
       rc=$?
       if [[ $rc == 3 ]]; then
         printf 'UNREACHABLE\n' > "$job_result"
+      elif [[ $rc == 4 ]]; then
+        printf 'AUDIT-FAILED\n' > "$job_result"
       else
         printf 'FAILED|%s\n' "$rc" > "$job_result"
       fi
@@ -463,6 +465,12 @@ finish_parallel_job() {
     unreachable_hosts+=("$job_name")
     ((unreachable+=1))
     append_status "$job_name" "$job_ip" "$FLAG" "UNREACHABLE" "Host nicht erreichbar"
+  elif [[ $result == AUDIT-FAILED ]]; then
+    printf '%b%s%b\n' "$TEXT_RED_B" "$job_name erreichbar, aber Audit fehlgeschlagen" "$TEXT_RESET"
+    warn "Job-Log fuer ${job_name}: ${job_log}"
+    audit_failed_hosts+=("$job_name")
+    ((audit_failed+=1))
+    append_status "$job_name" "$job_ip" "$FLAG" "AUDIT-FAILED" "Erreichbar, Audit nicht durchfuehrbar"
   else
     rc=${result#FAILED|}
     printf '%b%s%b\n' "$TEXT_RED_B" "$job_name fehlgeschlagen (rc=$rc)" "$TEXT_RESET"
@@ -698,10 +706,12 @@ processed=0
 matched=0
 failed=0
 unreachable=0
+audit_failed=0
 skipped=0
 filtered_out=0
 failed_hosts=()
 unreachable_hosts=()
+audit_failed_hosts=()
 running_jobs=0
 declare -a JOB_PIDS=()
 declare -a JOB_NAMES=()
@@ -768,6 +778,11 @@ for LINE in "${HOSTNAMES[@]}"; do
         unreachable_hosts+=("$Name")
         ((unreachable+=1))
         append_status "$Name" "$IP" "$FLAG" "UNREACHABLE" "Host nicht erreichbar"
+      elif [[ $rc == 4 ]]; then
+        printf '%b%s%b\n' "$TEXT_RED_B" "$Name erreichbar, aber Audit fehlgeschlagen" "$TEXT_RESET"
+        audit_failed_hosts+=("$Name")
+        ((audit_failed+=1))
+        append_status "$Name" "$IP" "$FLAG" "AUDIT-FAILED" "Erreichbar, Audit nicht durchfuehrbar"
       else
         printf '%b%s%b\n' "$TEXT_RED_B" "$Name fehlgeschlagen (rc=$rc)" "$TEXT_RESET"
         failed_hosts+=("$Name")
@@ -804,6 +819,7 @@ info "Durch Host-Filter ausgeschlossen: $filtered_out"
 info "Übersprungen: $skipped"
 info "Fehlgeschlagen: $failed"
 info "Nicht erreichbar: $unreachable"
+info "Audit fehlgeschlagen (erreichbar): $audit_failed"
 
 if (( unreachable > 0 )); then
   unreachable_hosts_text=$(printf '\n%s' "${unreachable_hosts[@]}")
@@ -815,6 +831,11 @@ if (( failed > 0 )); then
   warn "Fehlgeschlagene Systeme: ${failed_hosts_text}"
 fi
 
-if (( failed > 0 || unreachable > 0 )); then
+if (( audit_failed > 0 )); then
+  audit_failed_hosts_text=$(printf '\n%s' "${audit_failed_hosts[@]}")
+  warn "Audit nicht durchfuehrbar (erreichbar): ${audit_failed_hosts_text}"
+fi
+
+if (( failed > 0 || unreachable > 0 || audit_failed > 0 )); then
   exit 1
 fi
