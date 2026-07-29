@@ -71,7 +71,10 @@ ok=$(grep -hc 'UU-AUDIT|[^|]*|[^|]*|OK|'     "$run_log" || true)
 gap=$(grep -hc 'UU-AUDIT|[^|]*|[^|]*|GAP|'    "$run_log" || true)
 er=$(grep -hc 'UU-AUDIT|[^|]*|[^|]*|ERROR|'   "$run_log" || true)
 sk=$(grep -hc 'UU-AUDIT|[^|]*|[^|]*|SKIP|'    "$run_log" || true)
+# ERROR weiter aufschluesseln: echte Unerreichbarkeit vs. erreichbar-aber-Audit-fehlgeschlagen (#1837)
+unr=$(grep -hc 'UU-AUDIT|[^|]*|[^|]*|ERROR|.*gaps=\[unreachable\]'  "$run_log" || true)
+auf=$(grep -hc 'UU-AUDIT|[^|]*|[^|]*|ERROR|.*gaps=\[audit-failed\]' "$run_log" || true)
 echo
-printf 'Summe: OK=%s GAP=%s ERROR=%s SKIP=%s\n' "${ok:-0}" "${gap:-0}" "${er:-0}" "${sk:-0}"
+printf 'Summe: OK=%s GAP=%s ERROR=%s (unreachable=%s audit-failed=%s) SKIP=%s\n' "${ok:-0}" "${gap:-0}" "${er:-0}" "${unr:-0}" "${auf:-0}" "${sk:-0}"
 
 exit "$rc"

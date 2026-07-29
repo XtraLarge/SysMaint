@@ -196,11 +196,19 @@ if out="$(remote_run "$mode" 2>/dev/null)"; then
   printf '%s\n' "$out" | grep '^UUERR ' && warn "${Name}: Apply-Fehler (siehe UUERR)" || true
   exit 0
 else
-  warn "${Name}: nicht erreichbar oder Audit fehlgeschlagen"
-  emit ERROR - - - - - - - unreachable
-  # Sentinel-Exitcode 3 = UNREACHABLE (eigener Nicht-OK-Status in manage.sh).
-  # Frueher: [[ $APPLY == 1 ]] && exit 1 || exit 0  -> im Audit-Modus exit 0,
-  # wodurch manage.sh RESULT=OK schrieb und offline Hosts still maskiert wurden
-  # (#906). Jetzt in BEIDEN Modi ein dedizierter Nicht-OK-Exit.
-  exit 3
+  # remote_run scheiterte. Unterscheide (statt pauschal "unreachable"), damit ein
+  # nicht-auditierbarer Host die echte Unerreichbarkeit nicht verrauscht und keine
+  # echte Drift maskiert (#1837, ergaenzt #1783/#906):
+  #  - Host NICHT erreichbar (SSH-Connect scheitert) -> gaps=[unreachable], exit 3 (UNREACHABLE)
+  #  - Host erreichbar, aber Audit nicht durchfuehrbar -> gaps=[audit-failed], exit 4 (AUDIT-FAILED)
+  #    (z.B. bash/apt fehlt, non-Debian trotz BS=D, Remote-Skript-Fehler)
+  if ssh_reachable; then
+    warn "${Name}: erreichbar, aber unattended-Audit nicht durchfuehrbar (audit-failed)"
+    emit ERROR - - - - - - - audit-failed
+    exit 4
+  else
+    warn "${Name}: nicht erreichbar"
+    emit ERROR - - - - - - - unreachable
+    exit 3
+  fi
 fi
