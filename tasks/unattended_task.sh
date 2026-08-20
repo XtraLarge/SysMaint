@@ -189,8 +189,27 @@ if out="$(remote_run "$mode" 2>/dev/null)"; then
   [[ "$(val autorestart)" == ok ]] || gaps="${gaps}autorestart-on "
   [[ "$(val tenab)"       == ok ]] || gaps="${gaps}timer-enable "
   [[ "$(val tact)"        == ok ]] || gaps="${gaps}timer-active "
-  status=OK; [[ -n $gaps ]] && status=GAP
-  emit "$status" "$(val uu)" "$(val periodic)" "$(val f20)" "$(val origins)/miss$(val omiss)/surp$(val osurp)" \
+
+  # Known-accepted surp: reines Origins-Surplus (miss=0, surp>0) auf einem
+  # Hosts, der via UU_KNOWN_SURP_HOSTS als bekannt/akzeptiert markiert ist
+  # (z.B. Policy-B->A-Rueckbau, Apply gesperrt per Entscheidung #732/#473).
+  # Bedingung: KEIN fehlendes Origin (omiss=0), nur Surplus => origins-Gap
+  # entfernen und origins-Feld als known-surp<N> ausgeben.
+  _origins_disp="$(val origins)/miss$(val omiss)/surp$(val osurp)"
+  if [[ "$(val origins)" == drift && "$(val omiss)" == 0 && $(val osurp) -gt 0 \
+        && -n "${UU_KNOWN_SURP_HOSTS:-}" ]]; then
+    for _ks_h in $UU_KNOWN_SURP_HOSTS; do
+      if [[ "$_ks_h" == "${Name}" || "$_ks_h" == "${IP}" ]]; then
+        gaps="${gaps//origins /}"
+        _origins_disp="known-surp$(val osurp)/miss0/surp$(val osurp)"
+        break
+      fi
+    done
+    unset _ks_h
+  fi
+
+  status=OK; [[ -n "${gaps// /}" ]] && status=GAP
+  emit "$status" "$(val uu)" "$(val periodic)" "$(val f20)" "$_origins_disp" \
        "$(val autorestart)" "$(val tenab)/$(val tact)" "$(val stamp)" "${gaps:-none}"
   [[ -n $applyline ]] && printf 'UU-APPLY|%s|%s|%s\n' "${Name}" "${IP}" "${applyline#UUAPPLY }"
   printf '%s\n' "$out" | grep '^UUERR ' && warn "${Name}: Apply-Fehler (siehe UUERR)" || true

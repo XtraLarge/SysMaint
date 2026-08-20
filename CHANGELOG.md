@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `UU_KNOWN_SURP_HOSTS` configuration variable: surplus-only origins on listed hosts are now reported as `KNOWN-ACCEPTED` (`origins=known-surp<N>`) instead of `GAP/drift`, eliminating audit noise for hosts where `apply` is intentionally blocked (e.g. after a Policy-B→A rollback). Hosts with a genuinely missing origin (`miss>0`) are still reported as `GAP` regardless of the list.
+
 ## v0.2.0 - 2026-07-03
 
 Accumulated changes published since v0.1.0.

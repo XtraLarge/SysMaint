@@ -24,3 +24,16 @@ AUTOFS_PACKAGES_X=${AUTOFS_PACKAGES_X:-""}
 RSYSLOG_TARGET_HOST=${RSYSLOG_TARGET_HOST:-syslog.home.arpa}
 RSYSLOG_TARGET_PORT=${RSYSLOG_TARGET_PORT:-1514}
 RSYSLOG_TARGET_PROTOCOL=${RSYSLOG_TARGET_PROTOCOL:-udp}
+
+# ---------------------------------------------------------------------------
+# unattended-upgrades: bekannte/akzeptierte surplus-Origins (known-surp)
+#
+# Space-separated Liste von Host-Namen oder IPs, fuer die ein reines
+# Origins-Surplus (osurp>0, omiss=0) NICHT als GAP gemeldet wird, sondern
+# als KNOWN-ACCEPTED markiert wird (origins=known-surp<N>).
+# Typischer Anwendungsfall: Policy-Rueckbau B->A hinterlaesst ein Surplus-
+# Origin auf Hosts, auf denen Apply gesperrt ist (z.B. Kunden-Hosts).
+# Eintragen: Name exakt wie in .Systems.sh !Name-Spalte, ODER IP-Adresse.
+# Leer = kein Host ist ausgenommen (Default: alles wird als GAP gemeldet).
+# ---------------------------------------------------------------------------
+UU_KNOWN_SURP_HOSTS=${UU_KNOWN_SURP_HOSTS:-""}
