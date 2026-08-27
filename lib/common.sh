@@ -54,6 +54,10 @@ build_ssh_target() {
 
 build_ssh_base_opts() {
   local opts=()
+  # IFS explizit auf Standard-Whitespace setzen: .Systems.sh setzt IFS=$'\n' global,
+  # was das Space-Splitting von SSH_OPTS_BASE unterbricht (gesamter String würde ein
+  # Element → SSH-Fehler "keyword batchmode extra arguments at end of line").
+  local IFS=$' \t\n'
   if [[ -n ${SSH_OPTS_BASE:-} ]]; then
     # bewusstes Word-Splitting für klassische SSH -o Optionen aus einer String-Variable
     # shellcheck disable=SC2206

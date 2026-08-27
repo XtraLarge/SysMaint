@@ -36,6 +36,11 @@ fi
 require_file "$SYSTEMS_FILE"
 # shellcheck source=/dev/null
 source "$SYSTEMS_FILE"
+# .Systems.sh setzt IFS=$'\n' fuer mapfile und restauriert es nicht.
+# IFS nach dem Source auf Standard-Whitespace zuruecksetzen, damit alle
+# nachfolgenden Bash-Operationen (insb. Word-Splitting in Funktionen wie
+# build_ssh_base_opts) korrekt arbeiten.
+IFS=$' \t\n'
 
 export_optional_config() {
   local var_name
@@ -448,6 +453,10 @@ finish_parallel_job() {
   [[ -n ${pid:-} ]] || return 0
 
   wait "$pid" || true
+  # Race-Condition-Schutz: Subshell koennte vor dem Schreiben der result-Datei
+  # abgebrochen sein (Signal, Crash). Ohne Guard wuerde $(<"$job_result") mit
+  # "Datei nicht gefunden" fehlschlagen und set -e den gesamten Lauf abbrechen.
+  [[ -f "$job_result" ]] || printf 'FAILED|missing-result\n' > "$job_result"
   result=$(<"$job_result")
 
   if [[ -s $job_log ]]; then
