@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 - 2026-08-29
 
+- Fixed SSH `BatchMode` keyword error and race condition in `finish_parallel_job` when `JOBS > 1` — result file was missing for some parallel update tasks (#2611).
+- Set `global(localHostname)` in rsyslog configuration to prevent DNS casing variance in Loki log indexing.
 - Added `UU_KNOWN_SURP_HOSTS` configuration variable: surplus-only origins on listed hosts are now reported as `KNOWN-ACCEPTED` (`origins=known-surp<N>`) instead of `GAP/drift`, eliminating audit noise for hosts where `apply` is intentionally blocked (e.g. after a Policy-B→A rollback). Hosts with a genuinely missing origin (`miss>0`) are still reported as `GAP` regardless of the list.
+- Separated unreachable-host status from audit-failure: hosts that cannot be reached over SSH are now classified as `UNREACHABLE` instead of being grouped with genuine audit errors (#1783, #1837).
+- Hardened SSH connection options: added keepalive, hard connection timeout, and repaired broken `SSH_OPTS_BASE` parsing (#11).
 
 ## v0.2.0 - 2026-07-03
 
