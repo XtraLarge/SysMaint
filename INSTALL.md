@@ -125,6 +125,23 @@ cd /root/SysMaint
 ./scripts/link-runtime-overrides.sh
 ```
 
+## Enable the local pre-commit guard
+
+`scripts/link-runtime-overrides.sh` (also run by `scripts/update-local.sh`)
+installs the local pre-commit hook automatically when `pre-commit` is available
+and the hook is missing, so the guard is restored after a fresh clone or a
+hooks reset. To install it manually:
+
+```bash
+cd /root/SysMaint
+pip install pre-commit   # once, if not already present
+pre-commit install
+```
+
+The hook runs `scripts/check.sh` (shell syntax + naming-guard) before each
+commit as a local pre-push safety net. The CI gate in
+`.github/workflows/ci.yml` remains authoritative.
+
 ## Recommended Git practice
 
 - Keep the repository content generic and publishable.

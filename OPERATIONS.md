@@ -183,3 +183,20 @@ Operational rules:
 - APPLY enables timers and self-running patching = lasting effect. Roll APPLY
   out to more than a single test host only after explicit approval. Default
   stays AUDIT; `--apply` is always explicit.
+
+## Repository checks and pre-commit guard
+
+`scripts/check.sh` is the authoritative guard: it runs `bash -n` on the shell
+scripts plus a naming-guard grep against internal network/host values (private
+IP ranges, internal local domains, SSH keys, internal names). A hit turns the
+run red and prevents internal values from reaching this public repository.
+
+Two layers enforce it:
+
+- CI gate: `.github/workflows/ci.yml` runs `scripts/check.sh` on every push and
+  on pull requests to `main`. This is authoritative.
+- Local pre-commit guard: `.git/hooks/pre-commit` runs `scripts/check.sh`
+  before each commit as a pre-push safety net. It is installed idempotently by
+  `scripts/link-runtime-overrides.sh` (which `scripts/update-local.sh` also
+  calls), so it is restored after a fresh clone or a hooks reset. See INSTALL.md
+  ("Enable the local pre-commit guard") for manual installation.
