@@ -33,9 +33,9 @@ bash -n \
 # Variablen-Referenzen wie =$VAR oder =${VAR} matchen bewusst NICHT).
 PATTERN='(192\.168\.|10\.[0-9]+\.|ssh-rsa|BEGIN .*PRIVATE KEY|fritz\.box|derwerres|ConAction|Xtra|Hans-Willi|XLBackup|(password|passwd|secret|token|api[_-]?key)[[:space:]]*=[[:space:]]*["'\'']?[A-Za-z0-9_./+-]{6,})'
 
-# check.sh selbst enthaelt die Muster-Strings; CHANGELOG kann Release-Notizen
+# check.sh und naming-guard.yml enthalten die Muster-Strings; CHANGELOG kann Release-Notizen
 # mit Namen enthalten -> beide vom Inhalts-Scan ausnehmen.
-if (cd "$BASE_DIR" && git ls-files -z ':!:scripts/check.sh' ':!:CHANGELOG.md' \
+if (cd "$BASE_DIR" && git ls-files -z ':!:scripts/check.sh' ':!:.github/workflows/naming-guard.yml' ':!:CHANGELOG.md' \
       | xargs -0 -r grep -InE "$PATTERN" --); then
   echo "Sensitive-looking data found. Review before commit." >&2
   exit 1
