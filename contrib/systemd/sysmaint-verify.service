@@ -1,0 +1,10 @@
+[Unit]
+Description=SysMaint Nachkontrolle (Erreichbarkeit, Logs, Monitoring, Backup-Abdeckung)
+Documentation=file:///root/SysMaint/OPERATIONS.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/SysMaint/run-verify.sh
+TimeoutStartSec=1h

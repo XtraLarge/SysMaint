@@ -22,7 +22,14 @@ bash -n \
   "$BASE_DIR/run-autofs.sh" \
   "$BASE_DIR/run-proxmox.sh" \
   "$BASE_DIR/run-status.sh" \
+  "$BASE_DIR/run-weekly.sh" \
+  "$BASE_DIR/run-verify.sh" \
+  "$BASE_DIR/tools/inventory-list.sh" \
+  "$BASE_DIR/tools/check_sysmaint_weekly" \
   "$BASE_DIR/.Systems.sh"
+
+sh -n "$BASE_DIR/contrib/icinga-query.sh"
+python3 -m py_compile "$BASE_DIR"/tools/*.py && rm -rf "$BASE_DIR/tools/__pycache__"
 
 # Naming-guard: prueft NUR die GETRACKTEN Dateien (genau das, was tatsaechlich
 # ins oeffentliche origin gelangt) statt des gesamten Working-Tree. Sonst

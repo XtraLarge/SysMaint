@@ -1,0 +1,9 @@
+[Unit]
+Description=SysMaint Nachkontrolle jeden Samstag 07:00 (nach den Reboots des Wochenlaufs)
+
+[Timer]
+OnCalendar=Sat *-*-* 07:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
