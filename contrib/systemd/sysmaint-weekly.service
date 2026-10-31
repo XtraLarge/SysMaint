@@ -1,0 +1,11 @@
+[Unit]
+Description=SysMaint Wochenlauf (Inventar, Keys, Shell, RSyslog, AutoFS, unattended-Audit, Updates)
+Documentation=file:///root/SysMaint/OPERATIONS.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/SysMaint/run-weekly.sh
+TimeoutStartSec=6h
+Nice=5

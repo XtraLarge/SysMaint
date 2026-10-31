@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Add `run-weekly.sh`: weekly run of all tasks with summary and mail report.
+- Add `run-verify.sh`: post-run verification (reachability, reboot, keys,
+  log freshness in Loki, monitoring problems, backup coverage).
+- Add `tools/check_sysmaint_weekly` monitoring plugin and systemd timer units.
+- Rewrite `tools/sync-proxmox.sh`: analyse new guests, detect moved/gone guests,
+  name and IP drift, stopped guests; report file; Git commit instead of `.bak`.
+- Fix `run_ssh` swallowing stdin inside `while read` loops.
+
 ## v0.3.0 - 2026-08-29
 
 - Fixed SSH `BatchMode` keyword error and race condition in `finish_parallel_job` when `JOBS > 1` — result file was missing for some parallel update tasks (#2611).
