@@ -11,12 +11,15 @@ Prueft fuer alle laufenden Systeme des Inventars:
      - Platten mit backup=0 gehoeren zu einem Host in BackupPC (sonst ungesichert)
      - physische Systeme stehen in BackupPC
      - jeder BackupPC-Host hat im Monitoring backuppc_hostname (Frische wird ueberwacht)
-     - Hinweis auf moegliche Doppelsicherung (PBS-Image ohne backup=0 UND BackupPC)
+     - Daten nicht redundant: eine BackupPC-Freigabe, die nicht auf einer aus PBS
+       ausgenommenen Datenplatte (backup=0) liegt, ist zusaetzlich im PBS-Image
+       enthalten (Grundsatz: System als Image, Daten genau einmal)
 
 Bekannte Ausnahmen kommen ueber EXCEPTIONS_CMD (Quelle: Ausnahmen-Seite).
 
 Umgebung (aus /etc/sysmaint/config.sh, exportiert von run-verify.sh):
-  LOKI_URL, ICINGA_QUERY_CMD, BACKUPPC_HOSTS_CMD, EXCEPTIONS_CMD,
+  LOKI_URL, ICINGA_QUERY_CMD, BACKUPPC_SHARES_CMD (Zeilen HOST|SHARE, bevorzugt)
+  oder BACKUPPC_HOSTS_CMD (nur Hostliste), EXCEPTIONS_CMD,
   VERIFY_LOG_WINDOW_MIN (Standard 60), VERIFY_JOBS (Standard 8)
 
 Schreibt <lauf>/verify.txt (erste Zeile = Mail-Betreff) und logs/last_verify.status.
@@ -186,7 +189,7 @@ echo "NODE|$(hostname)"
 for id in $(pct list 2>/dev/null | awk 'NR>1{print $1}'); do
   c=$(pct config "$id" 2>/dev/null); st=$(pct status "$id" | awk '{print $2}')
   n=$(printf '%s\n' "$c" | awk '/^hostname:/{print $2; exit}')
-  d=$(printf '%s\n' "$c" | grep -E '^mp[0-9]+:' | grep 'backup=0' | cut -d: -f1 | paste -sd, -)
+  d=$(printf '%s\n' "$c" | grep -E '^mp[0-9]+:' | grep 'backup=0' | sed -E 's/^(mp[0-9]+):.*[ ,]mp=([^,]+).*/\1=\2/' | paste -sd, -)
   echo "GUEST|$id|lxc|$n|$st|$d"
 done
 for id in $(qm list 2>/dev/null | awk 'NR>1{print $1}'); do
@@ -227,28 +230,57 @@ def covered_by_job(jobs, vmid, node):
     return None
 
 
-def check_backup(inventory, facts, icinga_hosts):
-    cmd = os.environ.get("BACKUPPC_HOSTS_CMD", "").strip()
-    bpc = set()
-    if cmd:
-        rc, out, err = sh(cmd, timeout=60)
+def load_backuppc():
+    """BackupPC-Hosts und ihre Freigaben. Rueckgabe (verfuegbar, {norm: name}, {norm: [shares]|None})."""
+    shares_cmd = os.environ.get("BACKUPPC_SHARES_CMD", "").strip()
+    hosts_cmd = os.environ.get("BACKUPPC_HOSTS_CMD", "").strip()
+    names, shares = {}, {}
+    if shares_cmd:
+        rc, out, err = sh(shares_cmd, timeout=90)
+        if rc != 0:
+            warnings.append(f"BackupPC-Freigaben nicht abrufbar: {err.strip()[:150]}")
+            return False, names, shares
+        for ln in out.splitlines():
+            host, sep, share = ln.strip().partition("|")
+            if not sep or not host or host.startswith("_"):
+                continue
+            names[norm(host)] = host
+            share = share.strip()
+            share = share.rstrip("/") or "/"
+            shares.setdefault(norm(host), []).append(share)
+        return True, names, shares
+    if hosts_cmd:
+        rc, out, err = sh(hosts_cmd, timeout=60)
         if rc != 0:
             warnings.append(f"BackupPC-Hostliste nicht abrufbar: {err.strip()[:150]}")
-            cmd = ""
-        bpc = {ln.strip() for ln in out.splitlines() if ln.strip() and not ln.startswith("_")}
-    else:
-        infos.append("BackupPC-Pruefung uebersprungen (BACKUPPC_HOSTS_CMD nicht gesetzt)")
-    bpc_n = {norm(h): h for h in bpc}
+            return False, names, shares
+        for ln in out.splitlines():
+            h = ln.strip()
+            if h and not h.startswith("_"):
+                names[norm(h)] = h
+                shares[norm(h)] = None
+        return True, names, shares
+    infos.append("BackupPC-Pruefung uebersprungen (BACKUPPC_SHARES_CMD nicht gesetzt)")
+    return False, names, shares
+
+
+def under(path, base):
+    """True, wenn path gleich base ist oder darunter liegt."""
+    return path == base or path.startswith(base.rstrip("/") + "/")
+
+
+def check_backup(inventory, facts, icinga_hosts):
+    available, bpc_names, bpc_shares = load_backuppc()
 
     inv_by_key = {(i["host"], i["id"]): i for i in inventory if i.get("host") and i.get("id")}
-    matched_bpc = set()
-    double = []
+    matched = set()
+    redundant = []
 
     def bpc_hit(names):
         for n in names:
-            if norm(n) in bpc_n:
-                matched_bpc.add(norm(n))
-                return bpc_n[norm(n)]
+            if n and norm(n) in bpc_names:
+                matched.add(norm(n))
+                return norm(n)
         return None
 
     for px in [i for i in inventory if i["bs"] == "P"]:
@@ -265,7 +297,7 @@ def check_backup(inventory, facts, icinga_hosts):
                 node = f[1]
             if f[0] != "GUEST" or len(f) < 6:
                 continue
-            vmid, typ, gname, status, b0 = f[1], f[2], f[3], f[4], f[5]
+            vmid, typ, gname, status, b0raw = f[1], f[2], f[3], f[4], f[5]
             if status != "running":
                 continue
             inv = inv_by_key.get((px["name"], vmid), {})
@@ -273,28 +305,57 @@ def check_backup(inventory, facts, icinga_hosts):
             if inv.get("name") in facts:
                 names.add(facts[inv["name"]]["hostname"])
             label = f"{inv.get('name') or gname} ({px['name']}/{vmid})"
+            # Datenplatten: lxc "mp0=/pfad", qemu "scsi1" (Pfad im Gast unbekannt)
+            b0 = {}
+            for item in [x for x in b0raw.split(",") if x]:
+                disk, _, path = item.partition("=")
+                b0[disk] = (path.rstrip("/") or "/") if path else ""
             job = covered_by_job(jobs, vmid, node)
-            in_bpc = bpc_hit(names) if cmd else None
+            key = bpc_hit(names) if available else None
+            shares = bpc_shares.get(key) if key else None
+
             if not job:
                 if excepted(names, "pbs"):
                     infos.append(f"PBS: {label} in keinem Job - bekannte Ausnahme")
                 else:
                     warnings.append(f"PBS: {label} ist in keinem aktiven Backup-Job")
-            if b0 and cmd and not in_bpc:
-                if excepted(names, "backuppc"):
-                    infos.append(f"BackupPC: {label} Platten {b0} ohne Backup - bekannte Ausnahme")
+
+            if b0 and available:
+                if not key:
+                    if excepted(names, "backuppc"):
+                        infos.append(f"BackupPC: {label} Datenplatten {', '.join(b0)} ohne Backup - bekannte Ausnahme")
+                    else:
+                        errors.append(f"Backup-Luecke: {label} Datenplatten {', '.join(b0)} sind aus PBS ausgenommen "
+                                      "(backup=0), der Host steht aber nicht in BackupPC")
+                elif shares is not None:
+                    for disk, path in b0.items():
+                        if path:
+                            ok = any(s != "/" and (under(path, s) or under(s, path)) for s in shares)
+                        else:
+                            ok = any(s != "/" for s in shares)
+                        if not ok and not excepted(names, "backuppc"):
+                            where = f"{disk} ({path})" if path else disk
+                            warnings.append(f"Backup-Luecke? {label}: Datenplatte {where} ist aus PBS ausgenommen, "
+                                            f"BackupPC hat dafuer keine eigene Freigabe ({', '.join(shares)})")
+
+            if job and key and shares:
+                data_paths = [p for p in b0.values() if p]
+                if typ == "qemu" and b0 and not data_paths:
+                    double = [s for s in shares if s == "/"]
                 else:
-                    errors.append(f"Backup-Luecke: {label} Platten {b0} sind aus PBS ausgenommen (backup=0), "
-                                  "der Host steht aber nicht in BackupPC")
-            if job and not b0 and in_bpc:
-                double.append(inv.get("name") or gname)
+                    double = [s for s in shares if not any(under(s, p) for p in data_paths)]
+                if double:
+                    if excepted(names, "redundanz"):
+                        infos.append(f"Redundanz {label}: {', '.join(double)} - bekannte Ausnahme")
+                    else:
+                        redundant.append(f"{inv.get('name') or gname} ({bpc_names[key]}: {', '.join(double)})")
 
-    if double:
-        infos.append(f"Moegliche Doppelsicherung ({len(double)}): komplett im PBS-Image (keine Platte mit "
-                     f"backup=0) und zusaetzlich in BackupPC - pruefen, ob BackupPC nur Daten ausserhalb des "
-                     f"Images sichert: {', '.join(sorted(double))}")
+    if redundant:
+        warnings.append(f"Daten doppelt gesichert ({len(redundant)} Gaeste): BackupPC sichert Pfade, die bereits im "
+                        f"PBS-Image enthalten sind (keine Datenplatte mit backup=0) - Grundsatz: System als Image, "
+                        f"Daten genau einmal. Betroffen: {'; '.join(sorted(redundant))}")
 
-    if cmd:
+    if available:
         for h in inventory:
             if h["typ"] not in ("P", "N") or "1" not in (h.get("ky"), h.get("up")):
                 continue
@@ -307,16 +368,16 @@ def check_backup(inventory, facts, icinga_hosts):
                 else:
                     warnings.append(f"BackupPC: physisches System {h['name']} steht nicht in BackupPC")
 
-    if icinga_hosts is not None and bpc:
+    if icinga_hosts is not None and bpc_names:
         watched = {norm(((r.get("attrs") or {}).get("vars") or {}).get("backuppc_hostname") or "")
                    for r in icinga_hosts}
-        for n, h in sorted(bpc_n.items()):
+        for n, h in sorted(bpc_names.items()):
             if n not in watched:
                 warnings.append(f"BackupPC-Host {h}: im Monitoring ohne backuppc_hostname - Frische wird nicht ueberwacht")
 
-    if bpc:
+    if bpc_names:
         inv_names = {norm(i["name"]) for i in inventory} | {norm(f["hostname"]) for f in facts.values()}
-        orphans = sorted(h for n, h in bpc_n.items() if n not in inv_names and n not in matched_bpc)
+        orphans = sorted(h for n, h in bpc_names.items() if n not in inv_names and n not in matched)
         if orphans:
             infos.append(f"BackupPC-Hosts ohne Inventar-Eintrag (Altlast oder extern?): {', '.join(orphans)}")
 

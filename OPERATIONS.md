@@ -211,11 +211,17 @@ block, fresh syslog data per host in Loki (`LOKI_URL`, proves the rsyslog
 forwarding), critical log entries since the run started, open hard monitoring
 problems, and backup coverage: every running guest in an active vzdump/PBS
 job, every disk with `backup=0` belongs to a host in BackupPC, physical hosts
-in BackupPC, every BackupPC host monitored via `backuppc_hostname`, and a hint
-on possible double backups. Backup freshness stays with the monitoring checks.
+in BackupPC, every BackupPC host monitored via `backuppc_hostname`, and data
+redundancy: the running system belongs in the image backup (PBS), data is
+backed up exactly once. A BackupPC share that does not lie on a disk excluded
+from the image (`backup=0`) is reported as data backed up twice; a `backup=0`
+disk without its own BackupPC share is reported as a possible gap. Shares come
+from `BACKUPPC_SHARES_CMD` (lines `HOST|SHARE`, see `contrib/backuppc-shares.pl`).
+Backup freshness stays with the monitoring checks.
 
 Known exceptions come from `EXCEPTIONS_CMD` (lines `HOST|CHECK|SINCE|REASON`,
-host globs allowed, check `*` or `backup` for both backup checks). The source
+host globs allowed, check `*`, `backup` for both backup checks, or
+`redundanz` for an accepted double backup). The source
 of truth is kept outside this repository.
 
 `tools/check_sysmaint_weekly` is a Nagios/Icinga plugin reading both status
@@ -225,7 +231,7 @@ helper for the Icinga API that keeps the API password inside the container.
 
 All environment-specific values live in the runtime config only:
 `REPORT_MAIL_TO`, `REPORT_MAIL_FROM`, `WEEKLY_JOBS`, `LOKI_URL`,
-`ICINGA_QUERY_CMD`, `BACKUPPC_HOSTS_CMD`, `EXCEPTIONS_CMD`.
+`ICINGA_QUERY_CMD`, `BACKUPPC_SHARES_CMD`, `EXCEPTIONS_CMD`.
 
 `run_ssh` in `lib/common.sh` now runs with stdin detached: it is called inside
 `while read` loops, where ssh used to swallow the rest of the loop input (the
