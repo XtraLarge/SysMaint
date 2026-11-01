@@ -207,14 +207,22 @@ done
 for id in $(qm list 2>/dev/null | awk 'NR>1{print $1}'); do
   c=$(qm config "$id" 2>/dev/null); st=$(qm status "$id" | awk '{print $2}')
   n=$(printf '%s\n' "$c" | awk '/^name:/{print $2; exit}')
-  boot=$(printf '%s\n' "$c" | sed -n 's/^boot:.*order=\([^;, ]*\).*/\1/p; s/^bootdisk: *//p' | head -1)
-  d=$(printf '%s\n' "$c" | awk -F': ' -v boot="$boot" '/^(scsi|virtio|sata|ide)[0-9]+:/{
-        disk=$1; spec=$2
-        if (spec ~ /media=cdrom/ || spec ~ /^none/) next
-        if (boot == "" && disk ~ /^(scsi|virtio|sata|ide)0$/ && !seen0) { seen0=1; next }
-        if (disk == boot) next
-        inimg = (spec ~ /(^|,)backup=0(,|$)/) ? 0 : 1
-        printf "%s%s==%d", sep, disk, inimg; sep=","
+  # Systemplatte = erster Eintrag der Boot-Reihenfolge, der eine echte Platte ist
+  # (order=ide2;net0;scsi0 -> scsi0), sonst bootdisk, sonst die erste Platte.
+  d=$(printf '%s\n' "$c" | awk -F': ' '
+      /^boot:/ { if (match($2, /order=[^, ]+/)) order=substr($2, RSTART+6, RLENGTH-6) }
+      /^bootdisk:/ { bootdisk=$2 }
+      /^(scsi|virtio|sata|ide)[0-9]+:/ {
+        if ($2 ~ /media=cdrom/ || $2 ~ /^none/ || $2 ~ /:iso\//) next
+        n++; disk[n]=$1; isdisk[$1]=1
+        inimg[$1] = ($2 ~ /(^|,)backup=0(,|$)/) ? 0 : 1
+      }
+      END {
+        boot=""; k=split(order, o, ";")
+        for (i=1; i<=k; i++) if (o[i] in isdisk) { boot=o[i]; break }
+        if (boot == "" && (bootdisk in isdisk)) boot=bootdisk
+        if (boot == "" && n > 0) boot=disk[1]
+        for (i=1; i<=n; i++) if (disk[i] != boot) { printf "%s%s==%d", sep, disk[i], inimg[disk[i]]; sep="," }
       }')
   echo "GUEST|$id|qemu|$n|$st|$d"
 done
