@@ -212,16 +212,21 @@ forwarding), critical log entries since the run started, open hard monitoring
 problems, and backup coverage: every running guest in an active vzdump/PBS
 job, every disk with `backup=0` belongs to a host in BackupPC, physical hosts
 in BackupPC, every BackupPC host monitored via `backuppc_hostname`, and data
-redundancy: the running system belongs in the image backup (PBS), data is
-backed up exactly once. A BackupPC share that does not lie on a disk excluded
-from the image (`backup=0`) is reported as data backed up twice; a `backup=0`
-disk without its own BackupPC share is reported as a possible gap. Shares come
-from `BACKUPPC_SHARES_CMD` (lines `HOST|SHARE`, see `contrib/backuppc-shares.pl`).
+redundancy. Rule: the system is in the weekly PBS image and additionally in
+the daily BackupPC backup (intended). Data disks are backed up exactly once:
+excluded from the image and covered by their own BackupPC share (BackupPC
+backs up `/` with `--one-file-system`, mounts need their own share). A data
+disk outside the image without its own share is a gap; a data disk inside the
+image that also has its own share is data backed up twice. LXC mount points
+are only in the image with `backup=1`, bind mounts never; VM disks are in the
+image unless `backup=0`. Shares come from `BACKUPPC_SHARES_CMD` (lines
+`HOST|SHARE`, see `contrib/backuppc-shares.pl`).
 Backup freshness stays with the monitoring checks.
 
 Known exceptions come from `EXCEPTIONS_CMD` (lines `HOST|CHECK|SINCE|REASON`,
-host globs allowed, check `*`, `backup` for both backup checks, or
-`redundanz` for an accepted double backup). The source
+host globs allowed, check `*`, `backup` for both backup checks,
+`datenplatte` for a data disk backed up another way, `redundanz` for an
+accepted double backup). The source
 of truth is kept outside this repository.
 
 `tools/check_sysmaint_weekly` is a Nagios/Icinga plugin reading both status

@@ -6,14 +6,18 @@ Prueft fuer alle laufenden Systeme des Inventars:
   2. Logs: kommen frische Syslog-Daten in Loki an (beweist die RSyslog-Weiterleitung),
      und welche kritischen Meldungen gab es seit Beginn des Wochenlaufs
   3. Monitoring: offene, unquittierte Icinga-Probleme (harter Zustand)
-  4. Backup-Abdeckung (nur pruefen, nichts aendern):
+  4. Backup-Abdeckung (nur pruefen, nichts aendern). Grundsatz: das System
+     liegt im PBS-Image (woechentlich) und zusaetzlich in BackupPC (taeglich) -
+     das ist gewollt. Datenplatten werden genau einmal gesichert: aus dem Image
+     ausgenommen und in BackupPC mit eigener Freigabe.
      - jeder laufende Gast steckt in einem aktiven vzdump/PBS-Job
-     - Platten mit backup=0 gehoeren zu einem Host in BackupPC (sonst ungesichert)
+     - Datenplatte nicht im Image -> muss eine eigene BackupPC-Freigabe haben
+       (BackupPC sichert "/" mit --one-file-system, Mounts zaehlen nicht)
+     - Datenplatte im Image UND eigene BackupPC-Freigabe -> Daten doppelt
      - physische Systeme stehen in BackupPC
      - jeder BackupPC-Host hat im Monitoring backuppc_hostname (Frische wird ueberwacht)
-     - Daten nicht redundant: eine BackupPC-Freigabe, die nicht auf einer aus PBS
-       ausgenommenen Datenplatte (backup=0) liegt, ist zusaetzlich im PBS-Image
-       enthalten (Grundsatz: System als Image, Daten genau einmal)
+     LXC-Mountpoints sind in Proxmox nur mit backup=1 im Image, Bind-Mounts nie;
+     VM-Platten sind im Image, solange nicht backup=0 gesetzt ist.
 
 Bekannte Ausnahmen kommen ueber EXCEPTIONS_CMD (Quelle: Ausnahmen-Seite).
 
@@ -189,13 +193,26 @@ echo "NODE|$(hostname)"
 for id in $(pct list 2>/dev/null | awk 'NR>1{print $1}'); do
   c=$(pct config "$id" 2>/dev/null); st=$(pct status "$id" | awk '{print $2}')
   n=$(printf '%s\n' "$c" | awk '/^hostname:/{print $2; exit}')
-  d=$(printf '%s\n' "$c" | grep -E '^mp[0-9]+:' | grep 'backup=0' | sed -E 's/^(mp[0-9]+):.*[ ,]mp=([^,]+).*/\1=\2/' | paste -sd, -)
+  d=$(printf '%s\n' "$c" | awk -F': ' '/^mp[0-9]+:/{
+        disk=$1; spec=$2; path=""; inimg=0
+        if (match(spec, /(^|,)mp=[^,]+/)) { path=substr(spec, RSTART, RLENGTH); sub(/^,?mp=/, "", path) }
+        if (spec !~ /^\// && spec ~ /(^|,)backup=1(,|$)/) inimg=1
+        printf "%s%s=%s=%d", sep, disk, path, inimg; sep=","
+      }')
   echo "GUEST|$id|lxc|$n|$st|$d"
 done
 for id in $(qm list 2>/dev/null | awk 'NR>1{print $1}'); do
   c=$(qm config "$id" 2>/dev/null); st=$(qm status "$id" | awk '{print $2}')
   n=$(printf '%s\n' "$c" | awk '/^name:/{print $2; exit}')
-  d=$(printf '%s\n' "$c" | grep -E '^(scsi|virtio|sata|ide|efidisk|tpmstate)[0-9]+:' | grep 'backup=0' | cut -d: -f1 | paste -sd, -)
+  boot=$(printf '%s\n' "$c" | sed -n 's/^boot:.*order=\([^;, ]*\).*/\1/p; s/^bootdisk: *//p' | head -1)
+  d=$(printf '%s\n' "$c" | awk -F': ' -v boot="$boot" '/^(scsi|virtio|sata|ide)[0-9]+:/{
+        disk=$1; spec=$2
+        if (spec ~ /media=cdrom/ || spec ~ /^none/) next
+        if (boot == "" && disk ~ /^(scsi|virtio|sata|ide)0$/ && !seen0) { seen0=1; next }
+        if (disk == boot) next
+        inimg = (spec ~ /(^|,)backup=0(,|$)/) ? 0 : 1
+        printf "%s%s==%d", sep, disk, inimg; sep=","
+      }')
   echo "GUEST|$id|qemu|$n|$st|$d"
 done
 echo "JOBS"
@@ -305,14 +322,17 @@ def check_backup(inventory, facts, icinga_hosts):
             if inv.get("name") in facts:
                 names.add(facts[inv["name"]]["hostname"])
             label = f"{inv.get('name') or gname} ({px['name']}/{vmid})"
-            # Datenplatten: lxc "mp0=/pfad", qemu "scsi1" (Pfad im Gast unbekannt)
-            b0 = {}
+            # Datenplatten: "disk=pfad=imImage" (Pfad bei VMs unbekannt)
+            disks = []
             for item in [x for x in b0raw.split(",") if x]:
-                disk, _, path = item.partition("=")
-                b0[disk] = (path.rstrip("/") or "/") if path else ""
+                parts = item.split("=")
+                parts += [""] * (3 - len(parts))
+                path = (parts[1].rstrip("/") or "/") if parts[1] else ""
+                disks.append((parts[0], path, parts[2] == "1"))
             job = covered_by_job(jobs, vmid, node)
             key = bpc_hit(names) if available else None
             shares = bpc_shares.get(key) if key else None
+            extra = [x for x in (shares or []) if x != "/"]
 
             if not job:
                 if excepted(names, "pbs"):
@@ -320,40 +340,37 @@ def check_backup(inventory, facts, icinga_hosts):
                 else:
                     warnings.append(f"PBS: {label} ist in keinem aktiven Backup-Job")
 
-            if b0 and available:
-                if not key:
-                    if excepted(names, "backuppc"):
-                        infos.append(f"BackupPC: {label} Datenplatten {', '.join(b0)} ohne Backup - bekannte Ausnahme")
-                    else:
-                        errors.append(f"Backup-Luecke: {label} Datenplatten {', '.join(b0)} sind aus PBS ausgenommen "
-                                      "(backup=0), der Host steht aber nicht in BackupPC")
-                elif shares is not None:
-                    for disk, path in b0.items():
-                        if path:
-                            ok = any(s != "/" and (under(path, s) or under(s, path)) for s in shares)
+            for disk, path, inimg in disks:
+                where = f"{disk} ({path})" if path else disk
+                covered = (any(under(path, x) or under(x, path) for x in extra) if path else bool(extra))
+                if not inimg:
+                    if not available:
+                        continue
+                    if not key:
+                        if excepted(names, "datenplatte") or excepted(names, "backuppc"):
+                            infos.append(f"Datenplatte {label} {where}: nicht im Image, Host nicht in BackupPC - bekannte Ausnahme")
                         else:
-                            ok = any(s != "/" for s in shares)
-                        if not ok and not excepted(names, "backuppc"):
-                            where = f"{disk} ({path})" if path else disk
-                            warnings.append(f"Backup-Luecke? {label}: Datenplatte {where} ist aus PBS ausgenommen, "
-                                            f"BackupPC hat dafuer keine eigene Freigabe ({', '.join(shares)})")
-
-            if job and key and shares:
-                data_paths = [p for p in b0.values() if p]
-                if typ == "qemu" and b0 and not data_paths:
-                    double = [s for s in shares if s == "/"]
-                else:
-                    double = [s for s in shares if not any(under(s, p) for p in data_paths)]
-                if double:
+                            errors.append(f"Backup-Luecke: {label} Datenplatte {where} ist nicht im PBS-Image "
+                                          "und der Host steht nicht in BackupPC")
+                    elif shares is not None and not covered:
+                        if excepted(names, "datenplatte"):
+                            infos.append(f"Datenplatte {label} {where}: ohne eigene BackupPC-Freigabe - bekannte Ausnahme")
+                        else:
+                            warnings.append(f"Backup-Luecke? {label}: Datenplatte {where} ist nicht im PBS-Image und "
+                                            f"hat keine eigene BackupPC-Freigabe (vorhanden: {', '.join(shares)})")
+                elif key and shares is not None and covered:
                     if excepted(names, "redundanz"):
-                        infos.append(f"Redundanz {label}: {', '.join(double)} - bekannte Ausnahme")
+                        infos.append(f"Redundanz {label} {where} - bekannte Ausnahme")
+                    elif path:
+                        redundant.append(f"{inv.get('name') or gname}: {where} im Image und in BackupPC")
                     else:
-                        redundant.append(f"{inv.get('name') or gname} ({bpc_names[key]}: {', '.join(double)})")
+                        redundant.append(f"{inv.get('name') or gname}: VM-Platte {disk} im Image, zusaetzliche "
+                                         f"BackupPC-Freigaben {', '.join(extra)} - pruefen, ob dieselben Daten")
 
     if redundant:
-        warnings.append(f"Daten doppelt gesichert ({len(redundant)} Gaeste): BackupPC sichert Pfade, die bereits im "
-                        f"PBS-Image enthalten sind (keine Datenplatte mit backup=0) - Grundsatz: System als Image, "
-                        f"Daten genau einmal. Betroffen: {'; '.join(sorted(redundant))}")
+        warnings.append(f"Datenplatten doppelt gesichert ({len(redundant)}): im PBS-Image und zusaetzlich in "
+                        f"BackupPC - Grundsatz: Daten genau einmal (Platte aus dem Image nehmen). "
+                        f"{'; '.join(sorted(redundant))}")
 
     if available:
         for h in inventory:
