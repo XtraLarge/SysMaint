@@ -219,7 +219,9 @@ backs up `/` with `--one-file-system`, mounts need their own share). A data
 disk outside the image without its own share is a gap; a data disk inside the
 image that also has its own share is data backed up twice. LXC mount points
 are only in the image with `backup=1`, bind mounts never; VM disks are in the
-image unless `backup=0`. Shares come from `BACKUPPC_SHARES_CMD` (lines
+image unless `backup=0`. A bind mount counts as covered when the hypervisor's
+BackupPC host has a share containing its source path (the guest then must
+not back it up again). Shares come from `BACKUPPC_SHARES_CMD` (lines
 `HOST|SHARE`, see `contrib/backuppc-shares.pl`).
 Backup freshness stays with the monitoring checks.
 

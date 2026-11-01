@@ -16,7 +16,9 @@ Prueft fuer alle laufenden Systeme des Inventars:
      - Datenplatte im Image UND eigene BackupPC-Freigabe -> Daten doppelt
      - physische Systeme stehen in BackupPC
      - jeder BackupPC-Host hat im Monitoring backuppc_hostname (Frische wird ueberwacht)
-     LXC-Mountpoints sind in Proxmox nur mit backup=1 im Image, Bind-Mounts nie;
+     LXC-Mountpoints sind in Proxmox nur mit backup=1 im Image, Bind-Mounts nie
+     (ein Bind-Mount gilt als gesichert, wenn der Hypervisor den Quellpfad in
+     BackupPC hat);
      VM-Platten sind im Image, solange nicht backup=0 gesetzt ist.
 
 Bekannte Ausnahmen kommen ueber EXCEPTIONS_CMD (Quelle: Ausnahmen-Seite).
@@ -196,8 +198,9 @@ for id in $(pct list 2>/dev/null | awk 'NR>1{print $1}'); do
   d=$(printf '%s\n' "$c" | awk -F': ' '/^mp[0-9]+:/{
         disk=$1; spec=$2; path=""; inimg=0
         if (match(spec, /(^|,)mp=[^,]+/)) { path=substr(spec, RSTART, RLENGTH); sub(/^,?mp=/, "", path) }
+        src=""; if (spec ~ /^\//) { src=spec; sub(/,.*/, "", src) }
         if (spec !~ /^\// && spec ~ /(^|,)backup=1(,|$)/) inimg=1
-        printf "%s%s=%s=%d", sep, disk, path, inimg; sep=","
+        printf "%s%s=%s=%d=%s", sep, disk, path, inimg, src; sep=","
       }')
   echo "GUEST|$id|lxc|$n|$st|$d"
 done
@@ -326,9 +329,10 @@ def check_backup(inventory, facts, icinga_hosts):
             disks = []
             for item in [x for x in b0raw.split(",") if x]:
                 parts = item.split("=")
-                parts += [""] * (3 - len(parts))
+                parts += [""] * (4 - len(parts))
                 path = (parts[1].rstrip("/") or "/") if parts[1] else ""
-                disks.append((parts[0], path, parts[2] == "1"))
+                src = (parts[3].rstrip("/") or "/") if parts[3] else ""
+                disks.append((parts[0], path, parts[2] == "1", src))
             job = covered_by_job(jobs, vmid, node)
             key = bpc_hit(names) if available else None
             shares = bpc_shares.get(key) if key else None
@@ -340,9 +344,26 @@ def check_backup(inventory, facts, icinga_hosts):
                 else:
                     warnings.append(f"PBS: {label} ist in keinem aktiven Backup-Job")
 
-            for disk, path, inimg in disks:
+            for disk, path, inimg, src in disks:
                 where = f"{disk} ({path})" if path else disk
                 covered = (any(under(path, x) or under(x, path) for x in extra) if path else bool(extra))
+                if src and not inimg and available:
+                    # Bind-Mount: Daten liegen auf dem Hypervisor; gesichert, wenn dessen
+                    # BackupPC-Host den Quellpfad abdeckt (dann darf der Gast keine eigene Freigabe haben)
+                    pxkey = bpc_hit({px["name"], px["ip"], node})
+                    px_shares = [x for x in (bpc_shares.get(pxkey) or []) if x != "/"] if pxkey else []
+                    if any(under(src, x) for x in px_shares):
+                        if covered and not excepted(names, "redundanz"):
+                            redundant.append(f"{inv.get('name') or gname}: {where} (Bind-Mount {src}) ueber "
+                                             f"{px['name']} und zusaetzlich ueber den Gast in BackupPC")
+                        continue
+                    if not covered:
+                        if excepted(names, "datenplatte"):
+                            infos.append(f"Datenplatte {label} {where}: Bind-Mount {src} ungesichert - bekannte Ausnahme")
+                        else:
+                            warnings.append(f"Backup-Luecke? {label}: Bind-Mount {where} von {px['name']}:{src} ist "
+                                            f"weder beim Gast noch beim Hypervisor in BackupPC")
+                        continue
                 if not inimg:
                     if not available:
                         continue
