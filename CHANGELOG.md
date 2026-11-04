@@ -9,6 +9,16 @@
 - Rewrite `tools/sync-proxmox.sh`: analyse new guests, detect moved/gone guests,
   name and IP drift, stopped guests; report file; Git commit instead of `.bak`.
 - Fix `run_ssh` swallowing stdin inside `while read` loops.
+- Fix `HOME` unset under systemd: units without `User=` start without `HOME`,
+  and under `set -u` every task reading `${HOME}` (e.g. `remove_known_host` in
+  the unattended audit and the update task) aborted on every host. `HOME` is
+  now derived from the passwd database when missing.
+- Fix rsyslog task leaving an invalid configuration behind: the new file is now
+  validated with `rsyslogd -N1` and rolled back (previous version restored, or
+  the new file removed) on failure. A second `module(load="imjournal")` in
+  another drop-in is detected up front and reported instead of written.
+- rsyslog task no longer leaves `remote_syslog.conf.bak*` files behind and
+  removes those of earlier runs (backups are handled centrally).
 
 ## v0.3.0 - 2026-08-29
 

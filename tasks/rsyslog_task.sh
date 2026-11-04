@@ -66,17 +66,48 @@ for f in /etc/rsyslog.d/50-default.conf /etc/rsyslog.conf; do
     "$f"
 done
 
-if [[ -f "$FILE" ]]; then
-  cp -f "$FILE" "$BACKUP_FILE"
+cat > "$TMP"
+
+# imjournal darf nur einmal geladen werden. Laedt eine andere Datei es schon
+# (z. B. ein aelterer Drop-in), ist die Gesamtkonfig sonst ungueltig.
+other_imjournal=""
+for f in /etc/rsyslog.conf /etc/rsyslog.d/*.conf; do
+  [[ -f "$f" && "$f" != "$FILE" ]] || continue
+  if grep -q -E "^[[:space:]]*module\\(load=\"imjournal\"" "$f"; then
+    other_imjournal="$other_imjournal $f"
+  fi
+done
+if [[ -n "$other_imjournal" ]]; then
+  echo "FEHLER: imjournal wird bereits geladen in:$other_imjournal" >&2
+  echo "        Doppelte Weiterleitung? Datei pruefen und entfernen, dann Task wiederholen." >&2
+  rm -f "$TMP"
+  exit 1
 fi
 
-cat > "$TMP"
+# Alte Fassung im RAM-nahen Temp sichern, neue einsetzen, Gesamtkonfig pruefen.
+# Bei Fehler zurueckrollen: nie eine ungueltige Konfig stehen lassen.
+had_old=0
+if [[ -f "$FILE" ]]; then
+  cp -f "$FILE" "$TMP.old"
+  had_old=1
+fi
 install -D -m 0644 "$TMP" "$FILE"
 rm -f "$TMP"
 
-if command -v rsyslogd >/dev/null 2>&1; then
-  rsyslogd -N1
+if command -v rsyslogd >/dev/null 2>&1 && ! rsyslogd -N1; then
+  echo "FEHLER: rsyslog-Konfiguration ungueltig, rolle zurueck" >&2
+  if (( had_old == 1 )); then
+    install -m 0644 "$TMP.old" "$FILE"
+  else
+    rm -f "$FILE"
+  fi
+  rm -f "$TMP.old"
+  exit 1
 fi
+rm -f "$TMP.old"
+
+# Sicherungen frueherer Laeufe aufraeumen (Backups macht BackupPC).
+rm -f "$BACKUP_FILE" "$BACKUP_FILE".*
 
 if command -v systemctl >/dev/null 2>&1; then
   systemctl enable --now rsyslog >/dev/null 2>&1 || true

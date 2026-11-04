@@ -13,6 +13,13 @@ shopt -s extglob
 : "${SSH_CMD_TIMEOUT:=1800}"
 : "${SSH_PRECHECK_TIMEOUT:=60}"
 : "${SYSTEMS_FILE:=./.Systems.sh}"
+# systemd-Units ohne User= setzen kein HOME. Unter "set -u" brechen sonst
+# alle Stellen ab, die ${HOME} lesen (z. B. remove_known_host) — beim
+# Wochenlauf per Timer auf jedem Host. Aus der Passwortdatenbank ableiten.
+if [[ -z ${HOME:-} ]]; then
+  HOME=$(getent passwd "$(id -u)" | cut -d: -f6)
+  export HOME="${HOME:-/root}"
+fi
 
 TEXT_RESET=$'\e[0m'
 TEXT_GREEN=$'\e[1;32m'
