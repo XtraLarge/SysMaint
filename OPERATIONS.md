@@ -184,6 +184,66 @@ Operational rules:
   out to more than a single test host only after explicit approval. Default
   stays AUDIT; `--apply` is always explicit.
 
+## Weekly run and verification
+
+`run-weekly.sh` runs every SysMaint task once in a fixed order and keeps a
+dated log directory per run (`logs/weekly/<run>/`, the last 8 are kept):
+
+1. `inventory`  `tools/sync-proxmox.sh --report` - compare the inventory with
+   all Proxmox hosts (`BS=P`). New guests are analysed (OS via SSH) and added
+   with fitting flags, migrated guests get their `Host` field updated. Gone
+   guests, name and IP drift are only reported, never removed. Stopped guests
+   are reported and later skipped. If the inventory directory is a Git
+   repository, every change is committed there instead of writing `.bak` files.
+2. `monitoring` `tools/compare-monitoring.py` - compare active inventory hosts
+   with the monitoring hosts (`ICINGA_QUERY_CMD hosts`).
+3. `keys`, `shell`, `rsyslog`, `autofs`, `unattended` (audit only).
+4. `update` last, so that queued reboots happen after everything else.
+
+`tools/weekly-summary.py` classifies the results (errors, warnings, info;
+stopped guests and known exceptions are not errors), writes
+`<run>/summary.txt` and `logs/last_weekly.status`, and `tools/send-report.py`
+mails the summary through the local MTA (`REPORT_MAIL_TO`, no credentials).
+
+`run-verify.sh` (some hours later, after the reboots) checks without changing
+anything: SSH reachability, completed reboot, pending reboot, managed key
+block, fresh syslog data per host in Loki (`LOKI_URL`, proves the rsyslog
+forwarding), critical log entries since the run started, open hard monitoring
+problems, and backup coverage: every running guest in an active vzdump/PBS
+job, every disk with `backup=0` belongs to a host in BackupPC, physical hosts
+in BackupPC, every BackupPC host monitored via `backuppc_hostname`, and data
+redundancy. Rule: the system is in the weekly PBS image and additionally in
+the daily BackupPC backup (intended). Data disks are backed up exactly once:
+excluded from the image and covered by their own BackupPC share (BackupPC
+backs up `/` with `--one-file-system`, mounts need their own share). A data
+disk outside the image without its own share is a gap; a data disk inside the
+image that also has its own share is data backed up twice. LXC mount points
+are only in the image with `backup=1`, bind mounts never; VM disks are in the
+image unless `backup=0`. A bind mount counts as covered when the hypervisor's
+BackupPC host has a share containing its source path (the guest then must
+not back it up again). Shares come from `BACKUPPC_SHARES_CMD` (lines
+`HOST|SHARE`, see `contrib/backuppc-shares.pl`).
+Backup freshness stays with the monitoring checks.
+
+Known exceptions come from `EXCEPTIONS_CMD` (lines `HOST|CHECK|SINCE|REASON`,
+host globs allowed, check `*`, `backup` for both backup checks,
+`datenplatte` for a data disk backed up another way, `redundanz` for an
+accepted double backup). The source
+of truth is kept outside this repository.
+
+`tools/check_sysmaint_weekly` is a Nagios/Icinga plugin reading both status
+files (WARNING/CRITICAL on findings or when a run is older than 8/15 days).
+`contrib/systemd/` holds the timer units, `contrib/icinga-query.sh` a read-only
+helper for the Icinga API that keeps the API password inside the container.
+
+All environment-specific values live in the runtime config only:
+`REPORT_MAIL_TO`, `REPORT_MAIL_FROM`, `WEEKLY_JOBS`, `LOKI_URL`,
+`ICINGA_QUERY_CMD`, `BACKUPPC_SHARES_CMD`, `EXCEPTIONS_CMD`.
+
+`run_ssh` in `lib/common.sh` now runs with stdin detached: it is called inside
+`while read` loops, where ssh used to swallow the rest of the loop input (the
+old Proxmox sync therefore only ever found the first new guest).
+
 ## Repository checks and pre-commit guard
 
 `scripts/check.sh` is the authoritative guard: it runs `bash -n` on the shell

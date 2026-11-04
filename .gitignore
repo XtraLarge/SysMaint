@@ -7,3 +7,6 @@ logs/final-state-*/
 *.override
 keys/*.real.pub
 .DS_Store
+logs/weekly/
+logs/last_weekly.status
+logs/last_verify.status

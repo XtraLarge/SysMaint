@@ -92,7 +92,9 @@ run_ssh() {
     ssh_opts+=(-J "${SSH_USER}@${JP}")
   fi
 
-  with_timeout "$SSH_CMD_TIMEOUT" ssh "${ssh_opts[@]}" "$target" "$@"
+  # stdin bewusst abgeklemmt: run_ssh wird auch in while-read-Schleifen
+  # aufgerufen; ssh wuerde sonst den Rest der Schleifeneingabe verbrauchen.
+  with_timeout "$SSH_CMD_TIMEOUT" ssh "${ssh_opts[@]}" "$target" "$@" </dev/null
 }
 
 run_ssh_bash() {

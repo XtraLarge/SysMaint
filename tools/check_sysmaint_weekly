@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Icinga/Nagios-Plugin: Zustand des SysMaint-Wochenlaufs und der Nachkontrolle.
+#
+#   check_sysmaint_weekly [-d LOG-VERZEICHNIS] [-w TAGE] [-c TAGE]
+#
+# Liest logs/last_weekly.status und logs/last_verify.status (geschrieben von
+# run-weekly.sh / run-verify.sh).
+#   CRITICAL: Status CRITICAL, oder letzter Lauf aelter als -c Tage (Standard 15)
+#   WARNING:  Status WARNING, oder letzter Lauf aelter als -w Tage (Standard 8)
+#   UNKNOWN:  Statusdatei fehlt
+
+LOG_DIR=$(cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)/logs
+WARN_DAYS=8
+CRIT_DAYS=15
+
+while getopts "d:w:c:" opt; do
+  case $opt in
+    d) LOG_DIR=$OPTARG ;;
+    w) WARN_DAYS=$OPTARG ;;
+    c) CRIT_DAYS=$OPTARG ;;
+    *) echo "UNKNOWN - Aufruf: $0 [-d dir] [-w tage] [-c tage]"; exit 3 ;;
+  esac
+done
+
+# Rangfolge: OK < WARNING < UNKNOWN < CRITICAL
+rank() { case $1 in 0) echo 0 ;; 1) echo 1 ;; 3) echo 2 ;; *) echo 3 ;; esac; }
+
+worst=0
+msgs=()
+perf=()
+now=$(date +%s)
+
+for kind in weekly verify; do
+  f="$LOG_DIR/last_${kind}.status"
+  if [[ ! -r $f ]]; then
+    msgs+=("${kind}: keine Statusdatei")
+    (( $(rank 3) > $(rank "$worst") )) && worst=3
+    continue
+  fi
+  state=$(sed -n 's/^state=//p' "$f")
+  errs=$(sed -n 's/^errors=//p' "$f")
+  warns=$(sed -n 's/^warnings=//p' "$f")
+  run=$(sed -n 's/^run=//p' "$f")
+  age_d=$(( (now - $(stat -c %Y "$f")) / 86400 ))
+  rc=0
+  case $state in
+    OK) rc=0 ;;
+    WARNING) rc=1 ;;
+    CRITICAL) rc=2 ;;
+    *) rc=3 ;;
+  esac
+  if (( age_d >= CRIT_DAYS )); then
+    rc=2
+  elif (( age_d >= WARN_DAYS && rc < 1 )); then
+    rc=1
+  fi
+  msgs+=("${kind} ${run:-?}: ${state:-?} (${errs:-?} Fehler, ${warns:-?} Hinweise, vor ${age_d} d)")
+  perf+=("${kind}_errors=${errs:-0};;1" "${kind}_warnings=${warns:-0}" "${kind}_age_days=${age_d};${WARN_DAYS};${CRIT_DAYS}")
+  if (( $(rank "$rc") > $(rank "$worst") )); then
+    worst=$rc
+  fi
+done
+
+label=(OK WARNING CRITICAL UNKNOWN)
+printf 'SYSMAINT %s - %s | %s\n' "${label[$worst]}" "$(IFS=';'; printf '%s' "${msgs[*]}" | sed 's/;/; /g')" "${perf[*]}"
+exit "$worst"
