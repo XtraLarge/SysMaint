@@ -39,37 +39,15 @@ FILE="$1"
 TMP="$(mktemp)"
 BACKUP_FILE="${FILE}.bak"
 
-rm -f /etc/rsyslog.d/logstash.*
+# Reihenfolge ist Absicht: erst alles pruefen, dann umbauen. Bricht der Lauf
+# ab, bleibt die bisherige Logging-Konfiguration (lokal + Weiterleitung)
+# unveraendert.
 
-if command -v apt-get >/dev/null 2>&1; then
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq
-  apt-get install -y -qq rsyslog sed
-elif command -v zypper >/dev/null 2>&1; then
-  zypper --non-interactive --quiet install rsyslog sed
-else
-  echo "Kein unterstützter Paketmanager gefunden" >&2
-  exit 1
-fi
-
-rm -f /var/log/syslog* /var/log/auth.log* /var/log/cron.log* /var/log/kern.log* /var/log/mail.log* /var/log/user.log*
-
-for f in /etc/rsyslog.d/50-default.conf /etc/rsyslog.conf; do
-  [[ -f "$f" ]] || continue
-  sed -i -E \
-    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(\*\.\*;auth,authpriv\.none[[:space:]]+-?/var/log/syslog)|\1# \2|" \
-    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(auth,authpriv\.\*[[:space:]]+/var/log/auth\.log)|\1# \2|" \
-    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(cron\.\*[[:space:]]+-?/var/log/cron\.log)|\1# \2|" \
-    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(kern\.\*[[:space:]]+-?/var/log/kern\.log)|\1# \2|" \
-    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(mail\.\*[[:space:]]+-?/var/log/mail\.log)|\1# \2|" \
-    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(user\.\*[[:space:]]+-?/var/log/user\.log)|\1# \2|" \
-    "$f"
-done
-
+# 1) Neue Konfiguration von stdin lesen, bevor andere Befehle stdin anfassen.
 cat > "$TMP"
 
-# imjournal darf nur einmal geladen werden. Laedt eine andere Datei es schon
-# (z. B. ein aelterer Drop-in), ist die Gesamtkonfig sonst ungueltig.
+# 2) imjournal darf nur einmal geladen werden. Laedt eine andere Datei es schon
+#    (z. B. ein aelterer Drop-in), waere die Gesamtkonfig ungueltig.
 other_imjournal=""
 for f in /etc/rsyslog.conf /etc/rsyslog.d/*.conf; do
   [[ -f "$f" && "$f" != "$FILE" ]] || continue
@@ -84,8 +62,20 @@ if [[ -n "$other_imjournal" ]]; then
   exit 1
 fi
 
-# Alte Fassung im RAM-nahen Temp sichern, neue einsetzen, Gesamtkonfig pruefen.
-# Bei Fehler zurueckrollen: nie eine ungueltige Konfig stehen lassen.
+# 3) Pakete sicherstellen (rsyslogd wird fuer die Pruefung gebraucht).
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq </dev/null
+  apt-get install -y -qq rsyslog sed </dev/null
+elif command -v zypper >/dev/null 2>&1; then
+  zypper --non-interactive --quiet install rsyslog sed </dev/null
+else
+  echo "Kein unterstützter Paketmanager gefunden" >&2
+  rm -f "$TMP"
+  exit 1
+fi
+
+# 4) Neue Fassung einsetzen und Gesamtkonfig pruefen; bei Fehler zurueckrollen.
 had_old=0
 if [[ -f "$FILE" ]]; then
   cp -f "$FILE" "$TMP.old"
@@ -106,7 +96,23 @@ if command -v rsyslogd >/dev/null 2>&1 && ! rsyslogd -N1; then
 fi
 rm -f "$TMP.old"
 
-# Sicherungen frueherer Laeufe aufraeumen (Backups macht BackupPC).
+# 5) Erst jetzt, mit gueltiger Weiterleitung, lokale Ablage zurueckbauen.
+rm -f /etc/rsyslog.d/logstash.*
+rm -f /var/log/syslog* /var/log/auth.log* /var/log/cron.log* /var/log/kern.log* /var/log/mail.log* /var/log/user.log*
+
+for f in /etc/rsyslog.d/50-default.conf /etc/rsyslog.conf; do
+  [[ -f "$f" ]] || continue
+  sed -i -E \
+    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(\*\.\*;auth,authpriv\.none[[:space:]]+-?/var/log/syslog)|\1# \2|" \
+    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(auth,authpriv\.\*[[:space:]]+/var/log/auth\.log)|\1# \2|" \
+    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(cron\.\*[[:space:]]+-?/var/log/cron\.log)|\1# \2|" \
+    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(kern\.\*[[:space:]]+-?/var/log/kern\.log)|\1# \2|" \
+    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(mail\.\*[[:space:]]+-?/var/log/mail\.log)|\1# \2|" \
+    -e "/^[[:space:]]*#/! s|^([[:space:]]*)(user\.\*[[:space:]]+-?/var/log/user\.log)|\1# \2|" \
+    "$f"
+done
+
+# 6) Sicherungen frueherer Laeufe aufraeumen (Backups macht BackupPC).
 rm -f "$BACKUP_FILE" "$BACKUP_FILE".*
 
 if command -v systemctl >/dev/null 2>&1; then
