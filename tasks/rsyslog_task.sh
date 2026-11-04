@@ -39,19 +39,65 @@ FILE="$1"
 TMP="$(mktemp)"
 BACKUP_FILE="${FILE}.bak"
 
-rm -f /etc/rsyslog.d/logstash.*
+# Reihenfolge ist Absicht: erst alles pruefen, dann umbauen. Bricht der Lauf
+# ab, bleibt die bisherige Logging-Konfiguration (lokal + Weiterleitung)
+# unveraendert.
 
-if command -v apt-get >/dev/null 2>&1; then
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq
-  apt-get install -y -qq rsyslog sed
-elif command -v zypper >/dev/null 2>&1; then
-  zypper --non-interactive --quiet install rsyslog sed
-else
-  echo "Kein unterstützter Paketmanager gefunden" >&2
+# 1) Neue Konfiguration von stdin lesen, bevor andere Befehle stdin anfassen.
+cat > "$TMP"
+
+# 2) imjournal darf nur einmal geladen werden. Laedt eine andere Datei es schon
+#    (z. B. ein aelterer Drop-in), waere die Gesamtkonfig ungueltig.
+other_imjournal=""
+for f in /etc/rsyslog.conf /etc/rsyslog.d/*.conf; do
+  [[ -f "$f" && "$f" != "$FILE" ]] || continue
+  if grep -q -E "^[[:space:]]*module\\(load=\"imjournal\"" "$f"; then
+    other_imjournal="$other_imjournal $f"
+  fi
+done
+if [[ -n "$other_imjournal" ]]; then
+  echo "FEHLER: imjournal wird bereits geladen in:$other_imjournal" >&2
+  echo "        Doppelte Weiterleitung? Datei pruefen und entfernen, dann Task wiederholen." >&2
+  rm -f "$TMP"
   exit 1
 fi
 
+# 3) Pakete sicherstellen (rsyslogd wird fuer die Pruefung gebraucht).
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq </dev/null
+  apt-get install -y -qq rsyslog sed </dev/null
+elif command -v zypper >/dev/null 2>&1; then
+  zypper --non-interactive --quiet install rsyslog sed </dev/null
+else
+  echo "Kein unterstützter Paketmanager gefunden" >&2
+  rm -f "$TMP"
+  exit 1
+fi
+
+# 4) Neue Fassung einsetzen und Gesamtkonfig pruefen; bei Fehler zurueckrollen.
+had_old=0
+if [[ -f "$FILE" ]]; then
+  cp -f "$FILE" "$TMP.old"
+  had_old=1
+fi
+install -D -m 0644 "$TMP" "$FILE"
+rm -f "$TMP"
+
+if command -v rsyslogd >/dev/null 2>&1 && ! rsyslogd -N1; then
+  echo "FEHLER: rsyslog-Konfiguration ungueltig, rolle zurueck" >&2
+  if (( had_old == 1 )); then
+    install -m 0644 "$TMP.old" "$FILE"
+  else
+    rm -f "$FILE"
+  fi
+  rm -f "$TMP.old"
+  exit 1
+fi
+rm -f "$TMP.old"
+
+# 5) Erst jetzt, mit gueltiger Weiterleitung, lokale Ablage zurueckbauen.
+rm -f /etc/rsyslog.d/logstash.*
 rm -f /var/log/syslog* /var/log/auth.log* /var/log/cron.log* /var/log/kern.log* /var/log/mail.log* /var/log/user.log*
 
 for f in /etc/rsyslog.d/50-default.conf /etc/rsyslog.conf; do
@@ -66,17 +112,8 @@ for f in /etc/rsyslog.d/50-default.conf /etc/rsyslog.conf; do
     "$f"
 done
 
-if [[ -f "$FILE" ]]; then
-  cp -f "$FILE" "$BACKUP_FILE"
-fi
-
-cat > "$TMP"
-install -D -m 0644 "$TMP" "$FILE"
-rm -f "$TMP"
-
-if command -v rsyslogd >/dev/null 2>&1; then
-  rsyslogd -N1
-fi
+# 6) Sicherungen frueherer Laeufe aufraeumen (Backups macht BackupPC).
+rm -f "$BACKUP_FILE" "$BACKUP_FILE".*
 
 if command -v systemctl >/dev/null 2>&1; then
   systemctl enable --now rsyslog >/dev/null 2>&1 || true
