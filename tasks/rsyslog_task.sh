@@ -49,7 +49,21 @@ BACKUP_FILE="${FILE}.bak"
 # 1) Neue Konfiguration von stdin lesen, bevor andere Befehle stdin anfassen.
 cat > "$TMP"
 
-# 2) Eingang pruefen. Erfasst wird ausschliesslich ueber imuxsock (journald
+# 2) Pakete sicherstellen. Aendert keine bestehende Konfiguration, liefert aber
+#    auf frischen Hosts erst die rsyslog.conf, die Schritt 3 prueft.
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq </dev/null
+  apt-get install -y -qq rsyslog sed </dev/null
+elif command -v zypper >/dev/null 2>&1; then
+  zypper --non-interactive --quiet install rsyslog sed </dev/null
+else
+  echo "Kein unterstützter Paketmanager gefunden" >&2
+  rm -f "$TMP"
+  exit 1
+fi
+
+# 3) Eingang pruefen. Erfasst wird ausschliesslich ueber imuxsock (journald
 #    leitet per ForwardToSyslog an den Syslog-Socket weiter). Laedt eine andere
 #    Datei zusaetzlich imjournal, kommt jede Meldung doppelt an; fehlt
 #    imuxsock, kaeme nichts an.
@@ -68,19 +82,6 @@ done
 if [[ -n "$other_imjournal" ]]; then
   echo "FEHLER: imjournal wird zusaetzlich geladen in:$other_imjournal" >&2
   echo "        Jede Meldung kaeme doppelt an. Datei pruefen und entfernen, dann Task wiederholen." >&2
-  rm -f "$TMP"
-  exit 1
-fi
-
-# 3) Pakete sicherstellen (rsyslogd wird fuer die Pruefung gebraucht).
-if command -v apt-get >/dev/null 2>&1; then
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq </dev/null
-  apt-get install -y -qq rsyslog sed </dev/null
-elif command -v zypper >/dev/null 2>&1; then
-  zypper --non-interactive --quiet install rsyslog sed </dev/null
-else
-  echo "Kein unterstützter Paketmanager gefunden" >&2
   rm -f "$TMP"
   exit 1
 fi
