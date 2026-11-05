@@ -17,6 +17,13 @@
   validated with `rsyslogd -N1` and rolled back (previous version restored, or
   the new file removed) on failure. A second `module(load="imjournal")` in
   another drop-in is detected up front and reported instead of written.
+- Fix duplicate log lines in Loki: the rsyslog template loaded `imjournal` in
+  addition to the distribution's `imuxsock`, while journald forwards everything
+  to the syslog socket (`ForwardToSyslog=yes`) — every message arrived twice.
+  The template no longer loads `imjournal`; the task sets
+  `ForwardToSyslog=yes` explicitly via a journald drop-in, refuses to run when
+  `imuxsock` is missing or another file still loads `imjournal`, and removes
+  the stale `imjournal.state`.
 - rsyslog task no longer leaves `remote_syslog.conf.bak*` files behind and
   removes those of earlier runs (backups are handled centrally).
 
