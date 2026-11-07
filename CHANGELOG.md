@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Weekly summary: report unattended-upgrades audit gaps (GAP) as warnings instead of hiding them behind a successful task result.
 - Add `run-weekly.sh`: weekly run of all tasks with summary and mail report.
 - Add `run-verify.sh`: post-run verification (reachability, reboot, keys,
   log freshness in Loki, monitoring problems, backup coverage).
