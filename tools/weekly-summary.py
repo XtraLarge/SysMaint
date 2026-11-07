@@ -6,7 +6,8 @@ logs/last_weekly.status fuer das Monitoring.
 
 Einordnung:
   Fehler   = Task-Fehler auf laufenden Hosts ohne Ausnahme, Schritt ohne Ergebnis
-  Hinweise = Inventar-/Monitoring-Abweichungen, die eine Pruefung brauchen
+  Hinweise = Inventar-/Monitoring-Abweichungen und unattended-upgrades-Luecken,
+             die eine Pruefung brauchen
   Info     = gestoppte Gaeste, bekannte Ausnahmen, automatische Inventar-Aenderungen, Reboots
 
 Exit-Code: 0 = OK, 1 = Hinweise, 2 = Fehler
@@ -100,6 +101,33 @@ def main():
             elif res in ("OK", "SKIPPED"):
                 c[res] += 1
         counts[step] = c
+
+    # --- unattended-upgrades: Audit-Luecken ------------------------------
+    # Der Audit-Task endet auch bei Luecken (GAP) erfolgreich, das Ergebnis
+    # steht nur in den UU-AUDIT-Zeilen der Job-Logs. Ohne diese Auswertung
+    # bleiben Hosts ohne funktionierendes Auto-Patching im Bericht unsichtbar.
+    uu_dir = run / "unattended" / "last_jobs"
+    if steps.get("unattended", {}).get("rc") not in (None, "skip") and uu_dir.is_dir():
+        for log in sorted(uu_dir.glob("*.log")):
+            for ln in log.read_text(errors="replace").splitlines():
+                if not ln.startswith("UU-AUDIT|"):
+                    continue
+                f = ln.split("|")
+                if len(f) < 5 or f[3] != "GAP":
+                    continue
+                host, ip = f[1], f[2]
+                kv = dict(x.split("=", 1) for x in f[4:] if "=" in x)
+                gaps = kv.get("gaps", "").strip("[] ") or "?"
+                names = names_for(host, ip)
+                if any(norm(n) in stopped or n in stopped for n in names):
+                    continue
+                exc = find_exception(exceptions, names, "unattended")
+                if exc:
+                    infos.append(f"unattended-upgrades: {host} Luecken ({gaps}) - bekannte Ausnahme ({exc['reason']})")
+                    continue
+                detail = ", ".join(f"{k}={kv[k]}" for k in ("uu", "periodic", "20auto", "origins", "stamp") if k in kv)
+                warnings.append(f"unattended-upgrades: {host} ({ip}) Luecken: {gaps} ({detail})")
+                counts.setdefault("unattended", Counter())["Luecken"] += 1
 
     # --- Inventar-Abgleich -----------------------------------------------
     inv_rc = steps.get("inventory", {}).get("rc")
