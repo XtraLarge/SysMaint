@@ -116,7 +116,17 @@ printf "%s\n" "$MANAGED_END" >> "$TMP_FILE"
 TMP_DEDUP="$(mktemp)"
 awk 'NF && !seen[$0]++' "$TMP_FILE" > "$TMP_DEDUP"
 chmod 600 "$TMP_DEDUP"
-install -m 600 "$TMP_DEDUP" "$AUTH_FILE"
+if [ -L "$AUTH_FILE" ]; then
+  # Symlink beibehalten (z. B. Proxmox: /etc/pve/priv/authorized_keys im
+  # Cluster-Dateisystem). install wuerde den Link durch eine lokale Datei
+  # ersetzen; beim naechsten Boot fuegt Proxmox diese wieder an die
+  # Cluster-Datei an -> doppelte Bloecke, Datei waechst mit jedem Lauf.
+  # Ziel direkt ueberschreiben, Rechte/Eigentuemer des Ziels bleiben.
+  AUTH_TARGET="$(readlink -f "$AUTH_FILE")"
+  cat "$TMP_DEDUP" > "$AUTH_TARGET"
+else
+  install -m 600 "$TMP_DEDUP" "$AUTH_FILE"
+fi
 rm -f "$TMP_FILE" "$TMP_MANAGED" "$TMP_DEDUP"
 EOF_REMOTE
 )

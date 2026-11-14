@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keys task: keep a symlinked `authorized_keys` (Proxmox cluster file) instead of replacing it with a local file; fixes duplicated managed blocks piling up in the cluster file after each reboot.
 - Add `run-weekly.sh`: weekly run of all tasks with summary and mail report.
 - Add `run-verify.sh`: post-run verification (reachability, reboot, keys,
   log freshness in Loki, monitoring problems, backup coverage).
