@@ -35,12 +35,14 @@ Exit-Code: 0 = OK, 1 = Hinweise, 2 = Fehler
 import json
 import os
 import shlex
+import socket
 import sys
 import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -61,6 +63,19 @@ def ssh_cmd(host, remote, timeout=60):
 
 def excepted(names, check):
     return find_exception(EXCEPTIONS, names, check)
+
+
+@lru_cache(maxsize=None)
+def dns_names(ip):
+    """Kurznamen aus dem Reverse-DNS einer IP. Inventar-, Proxmox- und BackupPC-Namen
+    weichen teils voneinander ab; der DNS-Name ist die gemeinsame Quelle."""
+    if not ip:
+        return frozenset()
+    try:
+        host, aliases, _ = socket.gethostbyaddr(ip)
+    except (OSError, UnicodeError):
+        return frozenset()
+    return frozenset(n.split(".")[0] for n in [host, *aliases] if n)
 
 
 # --------------------------------------------------------------------------
@@ -329,7 +344,7 @@ def check_backup(inventory, facts, icinga_hosts):
             if status != "running":
                 continue
             inv = inv_by_key.get((px["name"], vmid), {})
-            names = {gname, inv.get("name", ""), inv.get("ip", "")}
+            names = {gname, inv.get("name", ""), inv.get("ip", "")} | dns_names(inv.get("ip"))
             if inv.get("name") in facts:
                 names.add(facts[inv["name"]]["hostname"])
             label = f"{inv.get('name') or gname} ({px['name']}/{vmid})"
@@ -351,6 +366,15 @@ def check_backup(inventory, facts, icinga_hosts):
                     infos.append(f"PBS: {label} in keinem Job - bekannte Ausnahme")
                 else:
                     warnings.append(f"PBS: {label} ist in keinem aktiven Backup-Job")
+
+            # Grundsatz: das System liegt im PBS-Image UND taeglich in BackupPC -
+            # gilt fuer gewartete Gaeste genauso wie fuer physische Systeme.
+            if available and not key and "1" in (inv.get("ky"), inv.get("up")):
+                if excepted(names, "backuppc"):
+                    infos.append(f"BackupPC: {label} nicht enthalten - bekannte Ausnahme")
+                else:
+                    warnings.append(f"BackupPC: {label} laeuft, steht aber nicht in BackupPC "
+                                    "(Grundsatz: System zusaetzlich taeglich in BackupPC)")
 
             for disk, path, inimg, src in disks:
                 where = f"{disk} ({path})" if path else disk
@@ -405,7 +429,7 @@ def check_backup(inventory, facts, icinga_hosts):
         for h in inventory:
             if h["typ"] not in ("P", "N") or "1" not in (h.get("ky"), h.get("up")):
                 continue
-            names = {h["name"], h["ip"]}
+            names = {h["name"], h["ip"]} | dns_names(h["ip"])
             if h["name"] in facts:
                 names.add(facts[h["name"]]["hostname"])
             if not bpc_hit(names):
@@ -422,7 +446,8 @@ def check_backup(inventory, facts, icinga_hosts):
                 warnings.append(f"BackupPC-Host {h}: im Monitoring ohne backuppc_hostname - Frische wird nicht ueberwacht")
 
     if bpc_names:
-        inv_names = {norm(i["name"]) for i in inventory} | {norm(f["hostname"]) for f in facts.values()}
+        inv_names = ({norm(i["name"]) for i in inventory} | {norm(f["hostname"]) for f in facts.values()}
+                     | {norm(n) for i in inventory for n in dns_names(i.get("ip"))})
         orphans = sorted(h for n, h in bpc_names.items() if n not in inv_names and n not in matched)
         if orphans:
             infos.append(f"BackupPC-Hosts ohne Inventar-Eintrag (Altlast oder extern?): {', '.join(orphans)}")
