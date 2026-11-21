@@ -53,8 +53,8 @@ cat > "$TMP"
 #    auf frischen Hosts erst die rsyslog.conf, die Schritt 3 prueft.
 if command -v apt-get >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq </dev/null
-  apt-get install -y -qq rsyslog sed </dev/null
+  apt-get -o DPkg::Lock::Timeout=600 update -qq </dev/null
+  apt-get -o DPkg::Lock::Timeout=600 install -y -qq rsyslog sed </dev/null
 elif command -v zypper >/dev/null 2>&1; then
   zypper --non-interactive --quiet install rsyslog sed </dev/null
 else

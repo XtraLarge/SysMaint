@@ -129,8 +129,8 @@ if [ "$MODE" = "apply" ]; then
   changed=""
   export DEBIAN_FRONTEND=noninteractive
   if [ "$uu" != ok ]; then
-    apt-get update -qq >/dev/null 2>&1 || true
-    if apt-get install -y -qq -o DPkg::Options::=--force-confold unattended-upgrades >/dev/null 2>&1; then
+    apt-get -o DPkg::Lock::Timeout=600 update -qq >/dev/null 2>&1 || true
+    if apt-get -o DPkg::Lock::Timeout=600 install -y -qq -o DPkg::Options::=--force-confold unattended-upgrades >/dev/null 2>&1; then
       changed="${changed}uu "
     else
       echo "UUERR install-unattended-upgrades-failed"
