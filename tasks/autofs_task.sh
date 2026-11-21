@@ -63,8 +63,8 @@ ensure_local_packages() {
 
     if (( ${#missing[@]} > 0 )); then
       info "Installiere fehlende AutoFS-Pakete: ${missing[*]}"
-      apt-get update
-      apt-get -y install "${missing[@]}"
+      apt-get -o DPkg::Lock::Timeout=600 update
+      apt-get -o DPkg::Lock::Timeout=600 -y install "${missing[@]}"
     fi
     flock -u 9
     return 0

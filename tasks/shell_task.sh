@@ -137,8 +137,8 @@ install_requested_packages() {
     done
 
     if (( \${#missing[@]} > 0 )); then
-      apt-get update
-      apt-get -y install "\${missing[@]}"
+      apt-get -o DPkg::Lock::Timeout=600 update
+      apt-get -o DPkg::Lock::Timeout=600 -y install "\${missing[@]}"
     fi
     return 0
   fi
